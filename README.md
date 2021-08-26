@@ -7,18 +7,70 @@ In this report, we will investigate a subset of Gene Expression profiles coming 
 
 ### 2.1 Load data, and inspect the shape of data matrix
 
+* Loads in data
+* Filter by CDS
+* Performs TPM normalization
+* Writes to file 
+
 ```{python}
-python3 main.py
+python3 main.py -CDS
 ```
+*Note: -CDS is set to true by default*
+use :
+```{python}
+python3 main.py -TRSC
+```
+To use full transcriptome.
 
 ### 2.2 Separate data in 2
 * The Leucegene full transcriptome (60K transcripts)
 * The Leucegene Coding transcriptome (22K coding sequences) 
 
 ### 2.3 PCA on Leucegene Public
+Performs Principal Component Analysis on Leucegene Public, then writes output to file.
+* Performs PCA, n_components = #samples
+* Performs PCA PC_X x PC_Y projection combinations, where X, Y < 10
+* Performs transcriptome PCA projection (all components) 
+* Writes loadings, projections, transformations,  to file
+
+```{python}
+python3 main.py -PCA
+```
+
 ### 2.4 Retrieving most contributing genes to Principal Components
+
+* Loads PCA loadings if they exist, else run PCA
+* Correlates each gene contribution to PC with loadings
+* Selects top 10 genes for each PC 
+* Performs Gene Ontology Enrichment analysis for each of the PC's top 10 gene set
+* Writes in table format 
+
+```{python}
+python3 main.py -PCA -GO
+```
+
 ### 2.5 t-SNE on Leucegene Public with Clinical Features Annotations
-### 2.6 Automatic feature detection with Supervised Machine Learning 
+
+* Loads PCA loadings if they exist, else run PCA
+* Performs 2D t-SNE transformation on PCA of GE matrix
+* Writes TSNE projection to file
+
+```{python}
+python3 main.py -TSNE
+```
+### 2.6 Plot Results 
+
+* Loads in the PCA, t-SNE data if they exist, else performs PCA and T-SNE analyses. 
+* Outputs a scatterplot BY **each feature** for  
+    * PCA PC_X vs PC_Y | X,Y < 10 projections  
+    * 2D t-SNE 
+
+```{python}
+python3 main.py -PCA -TSNE -PLOT
+```
+
+### 2.7 Automatic feature detection with Supervised Machine Learning 
+pending...
 
 ## 3. Discussion
 ### 3.1 Most contributing genes correlation to PC and GO enrichment
