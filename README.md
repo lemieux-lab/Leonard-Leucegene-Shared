@@ -68,7 +68,7 @@ To use full transcriptome.
 flag: -PCA
 ```
 Performs Principal Component Analysis on Leucegene Public, then writes output to file.
-1. ["Principal Components Analysis (PCA)"](https://en.wikipedia.org/wiki/Principal_component_analysis) (n_components = #samples)
+1. [Principal Components Analysis (PCA)](https://en.wikipedia.org/wiki/Principal_component_analysis) (n_components = #samples)
 2. **PCA Projection:** Performs gene count transformation on the PCs. This provides a dimensionality reduction if needed.  
 3. Writes the loadings and the projection to file. 
 
