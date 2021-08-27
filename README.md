@@ -5,31 +5,65 @@ In this report, we will investigate a subset of Gene Expression profiles coming 
 
 ## 2. Generating the Data
 
-### 2.1 Load data, and inspect the shape of data matrix
+To run the program, run :
+```{python3}
+python3 main.py 
+```
+The other commands will be explained.
+
+### 2.1 Load data
+
+```{bash}
+flag: -L
+default: on
+```
 
 * Loads in data
 * Filter by CDS
 * Performs TPM normalization
-* Writes to file 
 
+```{python}
+python3 main.py -L
+```
+
+#### 2.1.1 Dumping outputfiles.
+This functionality allows faster retrieval of data tables over time. This allows the program to also write the results it generated to disk. Output files, directories and filenames are generated automatically. 
+
+```{bash}
+python3 main.py -O
+default: on
+```
+* Writes every intermediate files during the loading sequences
+
+
+#### 2.1.2 and inspect the shape of data matrix
+```{python}
+python3 main.py -
+```
+
+### 2.2 Create two datasets with different widths 
+* The Leucegene full transcriptome (60K transcripts)
+* The Leucegene Coding transcriptome (22K coding sequences) 
+The command:
 ```{python}
 python3 main.py -CDS
 ```
+will run the program on protein coding genes only. 
+
 *Note: -CDS is set to true by default*
+
 use :
 ```{python}
 python3 main.py -TRSC
 ```
 To use full transcriptome.
 
-### 2.2 Separate data in 2
-* The Leucegene full transcriptome (60K transcripts)
-* The Leucegene Coding transcriptome (22K coding sequences) 
-
 ### 2.3 PCA on Leucegene Public
+```{bash} 
+flag: -PCA
+```
 Performs Principal Component Analysis on Leucegene Public, then writes output to file.
 * Performs PCA, n_components = #samples
-* Performs PCA PC_X x PC_Y projection combinations, where X, Y < 10
 * Performs transcriptome PCA projection (all components) 
 * Writes loadings, projections, transformations,  to file
 
@@ -39,6 +73,10 @@ python3 main.py -PCA
 
 ### 2.4 Retrieving most contributing genes to Principal Components
 
+ 
+```{bash} 
+flag: -GO
+```
 * Loads PCA loadings if they exist, else run PCA
 * Correlates each gene contribution to PC with loadings
 * Selects top 10 genes for each PC 
