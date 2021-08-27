@@ -34,16 +34,21 @@ python3 main.py -O
 default: on
 ```
 * Writes every intermediate files during the loading sequences
+* Writes results 
 
+#### 2.1.2 Inspect base stats on data
+This will provide some basic stats of the data features a.k.a. the matrix of gene counts and the matrix of clinical features. 
 
-#### 2.1.2 and inspect the shape of data matrix
 ```{python}
-python3 main.py -
+python3 main.py -INFO
+with -O: outfiles
+else: terminal
 ```
 
 ### 2.2 Create two datasets with different widths 
 * The Leucegene full transcriptome (60K transcripts)
 * The Leucegene Coding transcriptome (22K coding sequences) 
+
 The command:
 ```{python}
 python3 main.py -CDS
@@ -63,9 +68,9 @@ To use full transcriptome.
 flag: -PCA
 ```
 Performs Principal Component Analysis on Leucegene Public, then writes output to file.
-* Performs PCA, n_components = #samples
-* Performs transcriptome PCA projection (all components) 
-* Writes loadings, projections, transformations,  to file
+1. [Principal Components Analysis (PCA)]("https://en.wikipedia.org/wiki/Principal_component_analysis") (n_components = #samples)
+2. **PCA Projection:** Performs gene count transformation on the PCs. This provides a dimensionality reduction if needed.  
+* Writes the loadings and the projection to file. 
 
 ```{python}
 python3 main.py -PCA
