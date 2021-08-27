@@ -118,3 +118,7 @@ PC# | GO enrichment
 3 | x
 
 ### 3.2 t-SNE on 20K transcriptome with Clinical Features
+
+![Figure 1]("FIGS/lgn_public_GE_TSNE_CDS_TPM_WHO classification.png")
+
+![Figure 2]("FIGS/lgn_public_GE_TSNE_TRSC_TPM_WHO classification.png")

@@ -1,28 +1,38 @@
-from datetime import datetime 
-from functions import *
+from datetime import datetime
+import utils 
+import functions
 
 class Engine:
-    def __init__(self, args, dataset):
-        self.OUTFILES = args.OUTFILES 
-        self.PCA = args.PCA
-        self.TSNE = args.TSNE
-        self.PLOT = args.PLOT
-        self.dataset = dataset
+    def __init__(self, params, dataset):
+        self.OUTFILES = params.OUTFILES # bool
+        self.RUN_PCA = params.PCA # bool
+        self.RUN_TSNE = params.TSNE # bool
+        self.RUN_PLOTTING = params.PLOT # bool
+        self.COHORT = "public" # HARDCODE
+        self.dataset = dataset # Leucegene_Public_Dataset
 
-        self.OUTPATHS = {
-            "RES": f"RES{datetime.now()}",
+        self.OUTPATHS = {   # dict
+            "RES": utils.assert_mkdir(f"RES{datetime.now()}"),
         }
+
 
     def run(self):
         # outputs info
         self.dataset.dump_infos(self.OUTPATHS["RES"])
         # computes pca
-        self.PCA = run_pca(self.dataset, self.OUTPATHS["RES"])
+        if self.RUN_PCA : 
+            self.PCA = functions.run_pca(self.dataset)
+            if self.OUTFILES : 
+                print(self.PCA) #### write to file !!
             # writes table 
         # computes tsne
+        if self.RUN_TSNE :
+            self.GE_TSNE, self.TSNE = functions.run_tsne(self.dataset)
             # writes table
-        # scatter plot 
-            # by features
-            # by PC 1...10 x PC 1...10
-
-        pass
+            if self.OUTFILES:
+                print(self.TSNE)
+            # scatter plot 
+            if self.RUN_PLOTTING:
+                functions.run_tsne_plotting(self.dataset,self.GE_TSNE,  self.TSNE, self.OUTPATHS["RES"], cohort = self.COHORT, protein_coding = self.dataset.CDS)
+                # by features
+                # by PC 1...10 x PC 1...10

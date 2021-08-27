@@ -6,10 +6,12 @@ from engines import Engine
 import pdb
 
 def main():
+    args = utils.parse_arguments()
     eng = Engine(
-        args = utils.parse_arguments(), 
+        params = args, 
         dataset = Leucegene_Public_Dataset(
-            CF_file = "Data/lcg_public_CF"))
+            CF_file = "Data/lcg_public_CF",
+            protein_coding = not args.TRSC))
     # load leucegene_public dataset
     eng.run()
     pdb.set_trace()
