@@ -36,8 +36,9 @@ with -O: outfiles
 else: terminal
 ```
 
-### 2.2 Create two datasets with different widths 
-* The Leucegene full transcriptome (60K transcripts)
+### 2.2 Datasets
+### Control over dimension of the features input space   
+* The Leucegene full transcriptome =  transcripts
 * The Leucegene Coding transcriptome (22K coding sequences) 
 
 The command:
@@ -53,8 +54,9 @@ use :
 python3 main.py -TRSC
 ```
 To use full transcriptome.
+### 2.2 on Leucegene Public
 
-### 2.3 PCA on Leucegene Public
+### 2.3 PCA 
 ```{bash} 
 flag: -PCA
 ```

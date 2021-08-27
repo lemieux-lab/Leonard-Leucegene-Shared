@@ -4,12 +4,15 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     # add arguments
     parser.add_argument("-O", dest = "OUTFILES", action="store_true")
-    parser.add_argument("-TRSC", dest = "TRSC", action = "store_true", help = "run with full transcriptome")
+    parser.add_argument("-d", dest = "debug", action="store_true")
+    # TRUE FALSE control parameters
     parser.add_argument("-PCA", dest = "PCA", action="store_true")
     parser.add_argument("-TSNE", dest = "TSNE", action = "store_true")
     parser.add_argument("-PLOT", dest = "PLOT", action = "store_true")
-    args = parser.parse_args()
+    # Addittive string parameters
+    parser.add_argument("-W", dest = "WIDTHS", type = int, nargs = "+",  default = [1], help = "Dimensionality of input features space. \n1: Small transcriptome ~= 19,500 variables \n2: Full transcriptome ~= 54,500 transcripts. Can put as many jobs in this queue. Jobs will be done sequentially" )
     return args
+    args = parser.parse_args()
 
 # assert mkdir 
 def assert_mkdir(path):

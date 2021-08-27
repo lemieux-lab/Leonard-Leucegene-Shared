@@ -3,6 +3,9 @@ from sklearn.manifold import TSNE
 import numpy as np
 import pdb
 import matplotlib.pyplot as plt 
+import utils
+from tqdm import tqdm 
+import os
 def run_pca(dataset, outpath):
     print("Running PCA...")
     # init object
@@ -23,10 +26,11 @@ def run_tsne(dataset):
     proj_data = tsne.fit_transform(dataset.GE_TPM_LOG.T)
     return proj_data, tsne
 
-def run_tsne_plotting(dataset, proj_data, tsne, outpath, cohort, protein_coding):
+def run_tsne_plotting(dataset, proj_data, tsne, outpath, cohort, protein_coding, mode):
+    outpath = utils.assert_mkdir(os.path.join(outpath, "TSNE", cohort,['TRSC','CDS'][int(protein_coding)] ))
     markers = [".", "v",">", "<","^","p", "P"]
     colors = ["b", "g", "c", "y", "k","m", "darkgrey", "darkviolet"]
-    for feature in ['Project_ID_NGS', 'FAB classification', 'Cytogenetic group', 'Cytogenetic risk', 'Status at sampling', 'Age at sampling', 'Sex', 'WHO classification', 'Tissue']:
+    for feature in tqdm(['Project_ID_NGS', 'FAB classification', 'Cytogenetic group', 'Cytogenetic risk', 'Status at sampling', 'Age at sampling', 'Sex', 'WHO classification', 'Tissue']):
         fig = plt.figure(figsize = (20,10))
         plt.grid(color = 'grey', linestyle = '--', linewidth = 0.5)     
         np.random.shuffle(markers)
@@ -41,7 +45,7 @@ def run_tsne_plotting(dataset, proj_data, tsne, outpath, cohort, protein_coding)
         # Some aesthetics
         plt.xlabel("TSNE-1")
         plt.ylabel("TSNE-2")
-        caption = f"Lecugene - {cohort} - by {feature} - With Gene Expression t-SNE -\n From {['Whole Transcriptome','Protein Coding'][int(protein_coding)]} - With {dataset.NS} Samples and {dataset.GE_TPM_LOG.shape[0]} features"
+        caption = f"Leucegene - {cohort} - by {feature} - With Gene Expression t-SNE -\n From {['Whole Transcriptome','Protein Coding'][int(protein_coding)]} - With {dataset.NS} Samples and {dataset.GE_TPM_LOG.shape[0]} features"
         # center text
         plt.title(caption)
         plt.box(False)

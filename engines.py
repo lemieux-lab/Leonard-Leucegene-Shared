@@ -17,6 +17,7 @@ class Engine:
 
 
     def run(self):
+        mode = {"params":1,"default":2}[mode]
         # outputs info
         self.dataset.dump_infos(self.OUTPATHS["RES"])
         # computes pca
@@ -26,13 +27,13 @@ class Engine:
                 print(self.PCA) #### write to file !!
             # writes table 
         # computes tsne
-        if self.RUN_TSNE :
+        if self.RUN_TSNE or mode :
             self.GE_TSNE, self.TSNE = functions.run_tsne(self.dataset)
             # writes table
-            if self.OUTFILES:
+            if self.OUTFILES or mode:
                 print(self.TSNE)
             # scatter plot 
-            if self.RUN_PLOTTING:
-                functions.run_tsne_plotting(self.dataset,self.GE_TSNE,  self.TSNE, self.OUTPATHS["RES"], cohort = self.COHORT, protein_coding = self.dataset.CDS)
+            if self.RUN_PLOTTING or mode:
+                functions.run_tsne_plotting(self.dataset,self.GE_TSNE,  self.TSNE, self.OUTPATHS["RES"], cohort = self.COHORT, protein_coding = self.dataset.CDS, mode=mode)
                 # by features
                 # by PC 1...10 x PC 1...10
