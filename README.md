@@ -13,25 +13,16 @@ The other commands will be explained.
 
 ### 2.1 Load data
 
-```{bash}
-flag: -L
-default: on
-```
-
 * Loads in data
 * Filter by CDS
 * Performs TPM normalization
-
-```{python}
-python3 main.py -L
-```
 
 #### 2.1.1 Dumping outputfiles.
 This functionality allows faster retrieval of data tables over time. This allows the program to also write the results it generated to disk. Output files, directories and filenames are generated automatically. 
 
 ```{bash}
 python3 main.py -O
-default: on
+default: off
 ```
 * Writes every intermediate files during the loading sequences
 * Writes results 
