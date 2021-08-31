@@ -10,7 +10,7 @@ class Data:
         self.y = y
 
 class Leucegene_Dataset():
-    def __init__(self, CF_file, w, cohort) -> None:
+    def __init__(self, CF_file) -> None:
         print("Loading ClinF file ...")
         self.w = ["CDS", "TRSC"]
         self.C = cohort

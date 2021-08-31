@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import utils
 from tqdm import tqdm 
 import os
-def run_pca(dataset, outpath):
+def generate_pca(dataset, outpath):
     print("Running PCA...")
     # init object
     pca = PCA()
@@ -20,13 +20,13 @@ def run_pca(dataset, outpath):
     # 
     return pca  
 
-def run_tsne(dataset):
+def generate_tsne(dataset):
     print("Running TSNE...")
     tsne = TSNE(perplexity=np.random.randint(15,30), init = "pca", verbose = 1) # random perplexity
     proj_data = tsne.fit_transform(dataset.GE_TPM_LOG.T)
     return proj_data, tsne
 
-def run_tsne_plotting(dataset, proj_data, tsne, outpath, cohort, protein_coding, mode):
+def tsne_plotting(dataset, proj_data, tsne, outpath, cohort, protein_coding, mode):
     outpath = utils.assert_mkdir(os.path.join(outpath, "TSNE", cohort,['TRSC','CDS'][int(protein_coding)] ))
     markers = [".", "v",">", "<","^","p", "P"]
     colors = ["b", "g", "c", "y", "k","m", "darkgrey", "darkviolet"]
