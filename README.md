@@ -129,20 +129,28 @@ PC# | GO enrichment
 [figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic%20risk.svg)
 ![Figure 1.1](FIGS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
 
+[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_WHO%20classification.svg)
 ![Figure 1.2](FIGS/lgn_public_GE_TSNE_CDS_TPM_WHO_classification.svg)
 
+[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_Tissue.svg)
 ![Figure 1.3](FIGS/lgn_public_GE_TSNE_CDS_TPM_Tissue.svg)
 
+[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_Sex.svg)
 ![Figure 1.4](FIGS/lgn_public_GE_TSNE_CDS_TPM_Sex.svg)
 
+[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_RNASEQ_protocol.svg)
 ![Figure 1.5](FIGS/lgn_public_GE_TSNE_CDS_TPM_RNASEQ_protocol.svg)
 
+[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_NPM1%20mutation.svg)
 ![Figure 1.6](FIGS/lgn_public_GE_TSNE_CDS_TPM_NPM1_mutation.svg)
 
+[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_FLT3-ITD%20mutation.svg)
 ![Figure 1.7](FIGS/lgn_public_GE_TSNE_CDS_TPM_FLT3-ITD_mutation.svg)
 
 #### 3.2.1 Leucegene *pronostic* comparing selected features
 
+[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/pronostic/CDS/lgn_pronostic_GE_TSNE_CDS_TPM_Cytogenetic%20risk.svg)
 ![Figure 2.1](FIGS/lgn_pronostic_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
 
+[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/pronostic/CDS/lgn_pronostic_GE_TSNE_CDS_TPM_WHO%20classification.svg)
 ![Figure 2.2](FIGS/lgn_pronostic_GE_TSNE_CDS_TPM_WHO_classification.svg)
