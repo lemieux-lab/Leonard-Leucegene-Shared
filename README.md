@@ -37,7 +37,18 @@ else: terminal
 ```
 
 ### 2.2 Datasets
-### Control over dimension of the features input space   
+
+### 2.1 Control over samples subset
+```
+name: cohort
+flag: -C
+type: str
+values: ["public", "pronostic"]
+```
+* "public" : The Leucegene public subset = 403 samples. Curated samples subset to complete different feature prediction on.  
+* "pronostic" : The Leucegene pronostic subset = 300 samples. Curated samples subset that was selected to perform survival analysis on. 
+
+### 2.2 Control over dimension of the features input space   
 * The Leucegene full transcriptome =  transcripts
 * The Leucegene Coding transcriptome (22K coding sequences) 
 

@@ -2,17 +2,19 @@ import argparse
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    # add arguments
+    # add control arguments
     parser.add_argument("-O", dest = "OUTFILES", action="store_true")
     parser.add_argument("-d", dest = "debug", action="store_true")
+    parser.add_argument("-C", dest = "COHORTS", nargs = "+", type = str, default = ["public", "pronostic"], help = "The Leucegene public subset = 403 samples. Curated samples subset to complete different feature prediction on.\n The Leucegene pronostic subset = 300 samples. Curated samples subset that was selected to perform survival analysis on. ")
+    parser.add_argument("-W", dest = "WIDTHS", nargs = "+", type = str,  default = ["CDS", "TRSC"], help = "Dimensionality of input features space. \n CDS: Small transcriptome ~= 19,500 variables \nTRSC: Full transcriptome ~= 54,500 transcripts. Can put as many jobs in this queue. Jobs will be done sequentially" )
+    
     # TRUE FALSE control parameters
     parser.add_argument("-PCA", dest = "PCA", action="store_true")
     parser.add_argument("-TSNE", dest = "TSNE", action = "store_true")
     parser.add_argument("-PLOT", dest = "PLOT", action = "store_true")
     # Addittive string parameters
-    parser.add_argument("-W", dest = "WIDTHS", type = int, nargs = "+",  default = [1], help = "Dimensionality of input features space. \n1: Small transcriptome ~= 19,500 variables \n2: Full transcriptome ~= 54,500 transcripts. Can put as many jobs in this queue. Jobs will be done sequentially" )
-    return args
     args = parser.parse_args()
+    return args
 
 # assert mkdir 
 def assert_mkdir(path):
