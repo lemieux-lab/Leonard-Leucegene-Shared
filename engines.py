@@ -13,20 +13,22 @@ class Engine:
         self.RUN_PLOTTING = params.PLOT # bool
         self.COHORTS = params.COHORTS
         self.WIDTHS = params.WIDTHS
-        self.datasets  = {
-            "public" : Leucegene_Dataset(CF_file = "lgn_public_CF"), # Leucegene_Public_Dataset
-            "pronostic" : Leucegene_Dataset(CF_file = "lgn_pronostic_CF") # Leucegene_Public_Dataset
-        } # HARDCODE
+        self.load_datasets()
+        # HARDCODE
         self.OUTPATHS = {   # dict
             "RES": utils.assert_mkdir(f"RES{datetime.now()}"),
         }
-
+    def load_datasets(self):
+        ds = []
+        for cohort in self.COHORTS:
+            ds.append([cohort, Leucegene_Dataset(cohort = cohort)])
+        self.datasets = dict(ds)
 
     def run(self):
         for cohort in self.COHORTS:
             for width in self.WIDTHS: 
                 # generate_pca 
-                self.PCA = functions.generate_pca(self.dataset, 
+                self.PCA = functions.generate_pca(self.datasets, 
                     cohort = cohort, 
                     width = width, 
                     outpath = self.OUTPATHS["RES"])
