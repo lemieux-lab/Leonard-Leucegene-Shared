@@ -59,16 +59,6 @@ flag: -W
 type: str
 values: ["CDS", "TRSC"]
 ```
-will run the program on protein coding genes only. 
-
-*Note: -CDS is set to true by default*
-
-use :
-```{python}
-python3 main.py -TRSC
-```
-To use full transcriptome.
-### 2.2 on Leucegene Public
 
 ### 2.3 PCA 
 ```{bash} 
@@ -135,6 +125,6 @@ PC# | GO enrichment
 
 ### 3.2 t-SNE on 20K transcriptome with Clinical Features
 
-![Figure 1](FIGS/lgn_public_GE_TSNE_CDS_TPM_WHOclassification.svg)
+![Figure 1](FIGS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
 
-![Figure 2](FIGS/lgn_public_GE_TSNE_TRSC_TPM_WHOclassification.svg)
+![Figure 2](FIGS/lgn_public_GE_TSNE_CDS_TPM_WHO_classification.svg)
