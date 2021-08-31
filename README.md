@@ -49,12 +49,15 @@ values: ["public", "pronostic"]
 * "pronostic" : The Leucegene pronostic subset = 300 samples. Curated samples subset that was selected to perform survival analysis on. 
 
 ### 2.2 Control over dimension of the features input space   
-* The Leucegene full transcriptome =  transcripts
-* The Leucegene Coding transcriptome (22K coding sequences) 
+* TRSC: The Leucegene full transcriptome =  transcripts
+* CDS: The Leucegene Coding transcriptome (22K coding sequences) 
 
 The command:
 ```{python}
-python3 main.py -CDS
+name: width
+flag: -W
+type: str
+values: ["CDS", "TRSC"]
 ```
 will run the program on protein coding genes only. 
 
