@@ -125,14 +125,24 @@ PC# | GO enrichment
 
 ### 3.2 t-SNE on 20K transcriptome with Clinical Features
 
-#### ON Leucegene *public* comparing selected features
+#### 3.2.1 Leucegene *public* comparing selected features
 
-![Figure 1](FIGS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
+![Figure 1.1](FIGS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
 
-![Figure 2](FIGS/lgn_public_GE_TSNE_CDS_TPM_WHO_classification.svg)
+![Figure 1.2](FIGS/lgn_public_GE_TSNE_CDS_TPM_WHO_classification.svg)
 
-#### ON Leucegene *pronostic* comparing selected features
+![Figure 1.3](FIGS/lgn_public_GE_TSNE_CDS_TPM_Tissue.svg)
 
-![Figure 3](FIGS/lgn_pronostic_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
+![Figure 1.4](FIGS/lgn_public_GE_TSNE_CDS_TPM_Sex.svg)
 
-![Figure 4](FIGS/lgn_pronostic_GE_TSNE_CDS_TPM_WHO_classification.svg)
+![Figure 1.5](FIGS/lgn_public_GE_TSNE_CDS_TPM_RNASEQ_protocol.svg)
+
+![Figure 1.6](FIGS/lgn_public_GE_TSNE_CDS_TPM_NPM1_mutation.svg)
+
+![Figure 1.7](FIGS/lgn_public_GE_TSNE_CDS_TPM_FLT3-ITD_mutation.svg)
+
+#### 3.2.1 Leucegene *pronostic* comparing selected features
+
+![Figure 2.1](FIGS/lgn_pronostic_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
+
+![Figure 2.2](FIGS/lgn_pronostic_GE_TSNE_CDS_TPM_WHO_classification.svg)
