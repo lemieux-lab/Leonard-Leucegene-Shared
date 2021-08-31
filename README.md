@@ -126,7 +126,7 @@ PC# | GO enrichment
 ### 3.2 t-SNE on 20K transcriptome with Clinical Features
 
 #### 3.2.1 Leucegene *public* comparing selected features
-
+[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic%20risk.svg)
 ![Figure 1.1](FIGS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
 
 ![Figure 1.2](FIGS/lgn_public_GE_TSNE_CDS_TPM_WHO_classification.svg)
