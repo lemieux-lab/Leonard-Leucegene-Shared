@@ -29,8 +29,8 @@ def generate_tsne(datasets, cohort, width, outpath):
 def tsne_plotting(datasets, proj_data, tsne_data, cohort, width, outpath):
     outpath = utils.assert_mkdir(os.path.join(outpath, cohort, width ))
     markers = [".", "v",">", "<","^","p", "P"]
-    colors = ["b", "g", "c", "y", "k","m", "darkgrey", "darkviolet"]
-    features = ["WHO classification","Sex", "Induction_Type",'HSCT_Status_Type' ,'Cytogenetic risk', 'FAB classification','Tissue', 'RNASEQ_protocol',"IDH1-R132 mutation" ,'FLT3-ITD mutation',  "NPM1 mutation"]
+    colors = ["b", "g", "c", "y", "k","lightgreen", "darkgrey", "darkviolet"]
+    features = ["WHO classification","Sex", "Cytogenetic group","Induction_Type",'HSCT_Status_Type' ,'Cytogenetic risk', 'FAB classification','Tissue', 'RNASEQ_protocol',"IDH1-R132 mutation" ,'FLT3-ITD mutation',  "NPM1 mutation"]
     for feature in tqdm(features):
         fig = plt.figure(figsize = (20,10))
         plt.grid(color = 'grey', linestyle = '--', linewidth = 0.5)     
