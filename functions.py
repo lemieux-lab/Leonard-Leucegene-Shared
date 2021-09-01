@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import utils
 from tqdm import tqdm 
 import os
+
 def generate_pca(datasets, cohort, width, outpath):
     print("Running PCA...")
     # init object
@@ -26,12 +27,13 @@ def generate_tsne(datasets, cohort, width, outpath, N =1):
     
     data = []
     p = np.random.randint(15,30) # select perplexity
+    datasets[cohort].data[width].create_shuffles(N) # create shuffles data
     for n in range(N): 
-        # shuffle data
-        datasets[cohort].data[width].shuffle()
+        datasets[cohort].data[width].select_shuffle(n)
+        X = datasets[cohort].data[width].x 
         print(f"Running TSNE Rep {n +1} ...")
         tsne_engine = TSNE(perplexity=p, init = "pca", verbose = 1) # random perplexity
-        proj_x = tsne_engine.fit_transform(datasets[cohort].data[width].x)
+        proj_x = tsne_engine.fit_transform(X)
         data.append({"proj_x": proj_x, "tsne": tsne_engine})
     return data
 
@@ -42,6 +44,7 @@ def tsne_plotting(datasets, tsne_data, cohort, width, outpath):
     features = ["WHO classification","Sex", "Cytogenetic group","Induction_Type",'HSCT_Status_Type' ,'Cytogenetic risk', 'FAB classification','Tissue', 'RNASEQ_protocol',"IDH1-R132 mutation" ,'FLT3-ITD mutation',  "NPM1 mutation"]
     print("Plotting figures ...")
     for rep_n, tsne in enumerate(tsne_data):
+        datasets[cohort].data[width].select_shuffle(rep_n)
         for feature in tqdm(features, desc =f"PLOTTING REP: [{rep_n +1}] ..."):
             fig = plt.figure(figsize = (20,10))
             plt.grid(color = 'grey', linestyle = '--', linewidth = 0.5)     
@@ -57,7 +60,7 @@ def tsne_plotting(datasets, tsne_data, cohort, width, outpath):
             # Some aesthetics
             plt.xlabel("TSNE-1")
             plt.ylabel("TSNE-2")
-            caption = f"Leucegene - {cohort} - by {feature} - With Gene Expression t-SNE p={tsne['tsne'].perplexity} rep={rep_n+1} -\n From {width} - With {datasets[cohort].NS} Samples and {datasets[cohort].data[width].x.shape[1]} features"
+            caption = f"Leucegene - {cohort} - by {feature} - With Gene Expression t-SNE p={tsne['tsne'].perplexity} rep#{rep_n+1} -\n From {width} - With {datasets[cohort].NS} Samples and {datasets[cohort].data[width].x.shape[1]} features"
             # center text
             plt.title(caption)
             plt.box(False)

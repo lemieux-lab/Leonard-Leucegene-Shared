@@ -11,9 +11,12 @@ class Data:
         self.y = y
         self._reindex_targets()
 
-    def shuffle(self):
-        print("Dataset shuffled ...")
-        self.x = self.x.sample(frac = 1)
+    def create_shuffles(self, n):
+        print(f"Creates {n} data shuffles ...")
+        self.shuffles = [self.x.sample(frac =1).index for i in range(n)]
+    
+    def select_shuffle(self, n):
+        self.x = self.x.loc[self.shuffles[n]]
         self._reindex_targets()
 
     def _reindex_targets(self):

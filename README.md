@@ -106,11 +106,12 @@ default: OFF
 #### 2.5.2 Running t-SNE with N replicates
 * Random perplexity is picked within range [15, 30]
 * For each replicate: 
-    * dataset is suffled 
+    * dataset is shuffled 
+    * a TSNE projection is produced
 
 ```{python}
-python3 main.py -TSNE
-default: OFF
+python3 main.py -TSNE -N_TSNE <N>
+default: 1
 ```
 
 
