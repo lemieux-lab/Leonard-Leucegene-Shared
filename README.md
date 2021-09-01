@@ -93,8 +93,8 @@ python3 main.py -PCA -GO
 ### 2.5 t-SNE on Leucegene Public with Clinical Features Annotations
 
 #### 2.5.1 Running t-SNE (1 replicate, random perplexity)
-* Dataset suffled (default)
-* PCA reduction is applied (250 PCs)
+* Dataset is shuffled (default)
+* PCA reduction is applied (N PCs = N samples)
 * Random perplexity is picked in range [15,30]
 * Performs 2D t-SNE transformation on PCA of GE matrix
 
