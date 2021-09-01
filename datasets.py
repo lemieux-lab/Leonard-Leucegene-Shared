@@ -5,9 +5,19 @@ import pdb
 import os 
 
 class Data:
-    def __init__(self,x, y ) -> None:
+    def __init__(self,x, y , name = "data") -> None:
+        self.name = name
         self.x = x
-        self.y = y.loc[self.x.index]
+        self.y = y
+        self._reindex_targets()
+
+    def shuffle(self):
+        print("Dataset shuffled ...")
+        self.x = self.x.sample(frac = 1)
+        self._reindex_targets()
+
+    def _reindex_targets(self):
+        self.y = self.y.loc[self.x.index]
 
 class Leucegene_Dataset():
     def __init__(self, cohort) -> None:
@@ -31,10 +41,11 @@ class Leucegene_Dataset():
         # clean up
         self._GE_CDS_TPM.index = self._GE_CDS_TPM.SYMBOL
         # set CDS data
-        cds_data = Data(np.log(self._GE_CDS_TPM.iloc[:,:-self.gene_info.shape[1]] + 1).T, self.CF)
+        cds_data = Data(np.log(self._GE_CDS_TPM.iloc[:,:-self.gene_info.shape[1]] + 1).T, self.CF, name = f"{self.COHORT}_CDS")
         # set TRSC data
-        trsc_data = Data(np.log(self._GE_TPM + 1).T, self.CF) 
+        trsc_data = Data(np.log(self._GE_TPM + 1).T, self.CF, name = f"{self.COHORT}_TRSC") 
         self.data = {"CDS": cds_data, "TRSC": trsc_data}
+
     def dump_infos(self, outpath):
         # self.GE_CDS_TPM_LOG.to_csv(f"{outpath}/GE_CDS_TPM_LOG.csv")
         pass

@@ -18,16 +18,13 @@ The other commands will be explained.
 * Performs TPM normalization
 
 #### 2.1.1 Dumping outputfiles.
-This functionality allows faster retrieval of data tables over time. This allows the program to also write the results it generated to disk. Output files, directories and filenames are generated automatically. 
+Allows faster retrieval of data tables over time and to also write the results it generated to disk. Output files, directories and filenames are generated automatically. 
 
-```{bash}
-python3 main.py -O
-default: off
-```
 * Writes every intermediate files during the loading sequences
 * Writes results 
 
 #### 2.1.2 Inspect base stats on data
+***NOT YET IMPLEMENTED***
 This will provide some basic stats of the data features a.k.a. the matrix of gene counts and the matrix of clinical features. 
 
 ```{python}
@@ -44,6 +41,7 @@ name: cohort
 flag: -C
 type: str
 values: ["public", "pronostic"]
+default values: ["public", "pronostic"]
 ```
 * "public" : The Leucegene public subset = 403 samples. Curated samples subset to complete different feature prediction on.  
 * "pronostic" : The Leucegene pronostic subset = 300 samples. Curated samples subset that was selected to perform survival analysis on. 
@@ -58,6 +56,7 @@ name: width
 flag: -W
 type: str
 values: ["CDS", "TRSC"]
+default values: ["CDS", "TRSC"]
 ```
 
 ### 2.3 PCA 
@@ -71,6 +70,7 @@ Performs Principal Component Analysis on Leucegene Public, then writes output to
 
 ```{python}
 python3 main.py -PCA
+default: OFF
 ```
 
 ### 2.4 Retrieving most contributing genes to Principal Components
@@ -78,6 +78,7 @@ python3 main.py -PCA
  
 ```{bash} 
 flag: -GO
+default: OFF
 ```
 * Loads PCA loadings if they exist, else run PCA
 * Correlates each gene contribution to PC with loadings
@@ -91,13 +92,29 @@ python3 main.py -PCA -GO
 
 ### 2.5 t-SNE on Leucegene Public with Clinical Features Annotations
 
-* Loads PCA loadings if they exist, else run PCA
+#### 2.5.1 Running t-SNE (1 replicate, random perplexity)
+* Dataset suffled (default)
+* PCA reduction is applied (250 PCs)
+* Random perplexity is picked in range [15,30]
 * Performs 2D t-SNE transformation on PCA of GE matrix
-* Writes TSNE projection to file
 
 ```{python}
 python3 main.py -TSNE
+default: OFF
 ```
+
+#### 2.5.2 Running t-SNE with N replicates
+* Random perplexity is picked within range [15, 30]
+* For each replicate: 
+    * dataset is suffled 
+
+```{python}
+python3 main.py -TSNE
+default: OFF
+```
+
+
+
 ### 2.6 Plot Results 
 
 * Loads in the PCA, t-SNE data if they exist, else performs PCA and T-SNE analyses. 
