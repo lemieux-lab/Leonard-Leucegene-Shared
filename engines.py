@@ -59,7 +59,14 @@ class Engine:
                     cohort = cohort, 
                     width = width, 
                     outpath = self.OUTPATHS["RES"])
-                # plot pca
+                    # plot pca
+                    if self.RUN_PLOTTING:
+                        functions.pca_plotting(self.datasets,
+                        self.PCA,
+                        cohort = cohort,
+                        width = width,
+                        base_outpath = self.OUTPATHS["RES"]
+                        )
                 # generate ontologies pca
 
                 # generate TSNE
