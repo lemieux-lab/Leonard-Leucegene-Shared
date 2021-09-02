@@ -5,7 +5,29 @@ In this report, we will investigate a subset of Gene Expression profiles coming 
 
 ## 2. Generating the Data
 
-To run the program, run :
+### 2.0 Initializing the program, setting up environment variables (taken from [Source](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/) )
+
+To install venv via pip
+```{bash}
+python3 -m pip install --user virtualenv
+```
+
+Then, create  activate the environment (Only first time)
+```
+python3 -m venv env
+```
+
+**Activate environment (everytime to run)**
+```
+source env/bin/activate
+```
+
+Install required packages (Only first time)
+```
+python3 -m pip install -r requirements.txt
+```
+
+Then finally, to run the program, run :
 ```{python3}
 python3 main.py 
 ```
