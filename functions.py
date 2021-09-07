@@ -9,6 +9,7 @@ import utils
 from tqdm import tqdm 
 import os
 import itertools as it
+import pandas as pd
 
 def generate_pca(datasets, cohort, width, outpath):
     print("Running PCA...")
@@ -24,6 +25,32 @@ def generate_pca(datasets, cohort, width, outpath):
     # 
     return {"proj_x":proj_data, "pca":pca }
 
+def some_usefull_test(gene_set):
+    pdb.set_trace()
+    pass
+
+def get_enrichment(loading_scores, gene_infos, top_n = 10):
+    # rank scores
+    gene_set = loading_scores.sort_values(ascending = False)[:top_n]
+    # make enrichment test
+    scores = some_usefull_test(gene_set)
+    # store 
+    return pd.DataFrame({"enrichment_score": scores, "loading_score": gene_set}, index = gene_set.index)
+
+def get_ontologies(datasets, pca,  cohort, width, outpath, max_pc, top_n):
+    print("performing Gene Ontology analysis... ")
+    print(f"\tcohort: {cohort}, width: {width}, max_pcs: {max_pc}, top_n:{top_n} ...")
+    # get pc loadings
+    loadings = pd.DataFrame(pca["pca"].components_, columns = datasets[cohort].data[width].x.columns).T
+    # store ??
+    # get enrichments
+    # verify ref genome is there
+    RES = []
+    for PC in range(max_pc):
+        
+        enrichm = get_enrichment(loadings[PC], datasets["public"].gene_info, top_n = top_n)
+        RES.append(enrichm)
+
 def generate_tsne(datasets, cohort, width, outpath, N =1):
     
     data = []
@@ -37,6 +64,8 @@ def generate_tsne(datasets, cohort, width, outpath, N =1):
         proj_x = tsne_engine.fit_transform(X)
         data.append({"proj_x": proj_x, "tsne": tsne_engine})
     return data
+
+
 def pca_plotting(datasets, pca_data, cohort, width, base_outpath):
     
     maxPCs = 3

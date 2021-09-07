@@ -97,15 +97,17 @@ default: OFF
 
 ### 2.4 Retrieving most contributing genes to Principal Components
 
- 
+We investigate the first 3 components and retrieve the most contributing genes with highest loadings values for each PC. Output is a table for each PC the 1000 most contributing genes. Then, gene set enrichment and significatn ontologies are retained. 
+Following the methods described in [1](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0143196)
+
 ```{bash} 
 flag: -GO
 default: OFF
 ```
 * Loads PCA loadings if they exist, else run PCA
 * Correlates each gene contribution to PC with loadings
-* Selects top 10 genes for each PC 
-* Performs Gene Ontology Enrichment analysis for each of the PC's top 10 gene set
+* Selects top 1000 genes for each PC 
+* Performs Gene Ontology Enrichment analysis for each of the PC's top gene set
 * Writes in table format 
 
 ```{python}
@@ -154,7 +156,6 @@ pending...
 
 ## 3. Discussion
 ### 3.1 Most contributing genes correlation to PC and GO enrichment
-We investigate the first 3 components and retrieve the most contributing genes with highest correlation. Output is a table for each PC the 10 most contributing genes. Each column 
 
 #### Table
 PC# | GO enrichment

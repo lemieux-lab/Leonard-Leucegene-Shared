@@ -14,9 +14,12 @@ class Engine:
         self.RUN_PCA = params.PCA # bool
         self.RUN_TSNE = params.TSNE # bool
         self.N_TSNE = params.N_TSNE # int
+        self.MAX_PC = params.MAX_PC # int
         self.RUN_PLOTTING = params.PLOT # bool
-        self.COHORTS = params.COHORTS
-        self.WIDTHS = params.WIDTHS
+        self.COHORTS = params.COHORTS # str list
+        self.WIDTHS = params.WIDTHS # str list
+        self.RUN_GO = params.GO # bool
+        self.GO_TOP_N = params.GO_TOP_N # int
         self._init_CF_files()
         self._load_datasets()
         # HARDCODE
@@ -59,6 +62,15 @@ class Engine:
                     cohort = cohort, 
                     width = width, 
                     outpath = self.OUTPATHS["RES"])
+
+                    if self.RUN_GO:
+                        self.GO = functions.get_ontologies(self.datasets, 
+                        self.PCA,
+                        cohort = cohort,
+                        width = width,
+                        outpath = self.OUTPATHS["RES"],
+                        max_pc = self.MAX_PC,
+                        top_n = self.GO_TOP_N)
                     # plot pca
                     if self.RUN_PLOTTING:
                         functions.pca_plotting(self.datasets,
