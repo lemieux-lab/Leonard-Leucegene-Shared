@@ -45,8 +45,40 @@ def get_enrichment(loading_scores, GO_terms, top_n = 10):
 
 def preselection_of_GO_terms(gene_info):
     # load GO struct
+    if not os.path.exists("Data/goa_human.gaf"):
+        print ("loading and parsing gaf file ...")
+        os.system("rm *.gaf*")
+        os.system("wget http://geneontology.org/gene-associations/goa_human.gaf.gz")
+        os.system("gunzip goa_human.gaf.gz ")
+        os.system("mv goa_human.gaf Data")
+    columns = np.concatenate([["db_name", "db_id", "SYMBOL", "rship", "GO_term", "ref",  "EV_code", "PMID", "undef", "descr", "alt_names"], np.arange(11, 17).astype(str)])
+    assoc = pd.read_csv("Data/goa_human.gaf", sep = "\t", skiprows = 41, header = None)
+    assoc.columns = columns 
+    # further parse assoc.... 
+    assoc = assoc[["SYMBOL","GO_term", "EV_code", "descr", "alt_names"]]
+    evidences = ["IDA","IGI","IMP","ISO","ISS","IC","NAS","TAS"]
+    assoc = assoc[assoc.EV_code.isin(evidences)]
+    # get counts by GO 
+    counts = assoc.groupby("GO_term").count().sort_values("SYMBOL", ascending = False)
+    # remove too broad GO
+    counts = counts[counts.SYMBOL < 200]
+    # remove too specific GO
+    counts = counts[counts.SYMBOL > 5]
     pdb.set_trace()
-    go_terms = None
+    if not os.path.exists("Data/go-basic.obo"):
+        print("loading and parsing obo file ...")
+        os.system("rm *.obo")
+        os.system("wget http://purl.obolibrary.org/obo/go/go-basic.obo")
+        os.system("mv go-basic.obo Data")
+    obo = read_obo(open("Data/go-basic.obo"))
+    # understand how the structure works.
+    for n, nbrsdict in obo.adjacency():
+        print (n)
+        for nbr, keydict in nbrsdict.items():
+                pdb.set_trace()
+
+
+
     # filter CDS if needed
     # propagate through struct
     # filter to get about 7,500 terms
