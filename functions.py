@@ -10,6 +10,7 @@ from tqdm import tqdm
 import os
 import itertools as it
 import pandas as pd
+from obo.read import read_obo 
 
 def generate_pca(datasets, cohort, width, outpath):
     print("Running PCA...")
@@ -25,20 +26,45 @@ def generate_pca(datasets, cohort, width, outpath):
     # 
     return {"proj_x":proj_data, "pca":pca }
 
-def some_usefull_test(gene_set):
+def XL_mHG_test(gene_set, go_matrix):
     pdb.set_trace()
     pass
 
-def get_enrichment(loading_scores, gene_infos, top_n = 10):
+def get_enrichment(loading_scores, GO_terms, top_n = 10):
+    pdb.set_trace()
     # rank scores
-    gene_set = loading_scores.sort_values(ascending = False)[:top_n]
+    gene_set = loading_scores.sort_values()[np.concatenate([np.arange(top_n), np.arange(loading_scores.shape[0] - top_n, loading_scores.shape[0])])]
     # make enrichment test
-    scores = some_usefull_test(gene_set)
+    go_scores = []
+    for GO_term in GO_terms.keys():
+        go_scores.append(XL_mHG_test(gene_set, GO_terms))
+    # filter go terms 
+    go_scores_filtered = go_scores[go_scores["adjusted_p_val"] < 0.05]
     # store 
-    return pd.DataFrame({"enrichment_score": scores, "loading_score": gene_set}, index = gene_set.index)
+    return go_scores_filtered
+
+def preselection_of_GO_terms(gene_info):
+    # load GO struct
+    pdb.set_trace()
+    go_terms = None
+    # filter CDS if needed
+    # propagate through struct
+    # filter to get about 7,500 terms
+    go_terms_filtered = go_terms
+    # return G x m matrix with G number of selected genes, by m number of go terms retained. where each entry is presence / absence
+    M = []
+    go_terms = []
+    for go_term in go_terms_filtered.keys():
+        go_terms.append(go_term)
+        G = []
+        for gene in gene_info.SYMBOL:
+            G.append(int(gene in go_terms_filtered[go_term]))
+        M.append(G)
+    return pd.DataFrame(np.matrix(M), index = go_terms, columns = gene_info.SYMBOL) 
 
 def get_ontologies(datasets, pca,  cohort, width, outpath, max_pc, top_n):
     print("performing Gene Ontology analysis... ")
+    GO_terms = preselection_of_GO_terms(datasets[cohort].gene_info)
     print(f"\tcohort: {cohort}, width: {width}, max_pcs: {max_pc}, top_n:{top_n} ...")
     # get pc loadings
     loadings = pd.DataFrame(pca["pca"].components_, columns = datasets[cohort].data[width].x.columns).T
@@ -48,7 +74,7 @@ def get_ontologies(datasets, pca,  cohort, width, outpath, max_pc, top_n):
     RES = []
     for PC in range(max_pc):
         
-        enrichm = get_enrichment(loadings[PC], datasets["public"].gene_info, top_n = top_n)
+        enrichm = get_enrichment(loadings[PC], GO_terms, top_n = top_n)
         RES.append(enrichm)
 
 def generate_tsne(datasets, cohort, width, outpath, N =1):
