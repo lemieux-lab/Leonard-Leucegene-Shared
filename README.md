@@ -154,19 +154,33 @@ python3 main.py -PCA -TSNE -PLOT
 ### 2.7 Automatic feature detection with Supervised Machine Learning 
 pending...
 
-## 3. Discussion
-### 3.1 Most contributing genes correlation to PC and GO enrichment
+## 3. Predicting Survival using factorized Embeddings Cox-PH-DNN
+### 3.1 Benchmarks
+```
+python3 main.py -FACT_EMB -B
+```
+* Trains & test PCA + CPH model
+* Trains & test CLINF + CPH model
+* Trains & test PCA + CLINF + CPH model
+* Trains & test PCA + CPHDNN model
 
-#### Table
-PC# | GO enrichment
----|---
-1 | x
-2 | x
-3 | x
+### 3.2 Fixed Factorized Embeddings + Cox-PH-DNN
+```
+python3 main.py -FACT_EMB -EMB <embedding_file>
+```
+* Trains & test Fixed Embedding + CPHDNN model
 
-### 3.2 t-SNE on 20K transcriptome with Clinical Features
+### 3.3 Simultaneous training of Fact-EMb-CPHDNN
+```
+python3 main.py -FACT_EMB
+```
+* Trains & test Factorized Embedding + CPHDNN model
 
-#### 3.2.1 Leucegene *public* comparing selected features
+## 4. Discussion
+
+## 5. Figures 
+
+### 5.1 Leucegene *public* comparing selected features
 [figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic%20risk.svg)
 ![Figure 1.1](FIGS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
 
@@ -188,7 +202,7 @@ PC# | GO enrichment
 [figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_FLT3-ITD%20mutation.svg)
 ![Figure 1.7](FIGS/lgn_public_GE_TSNE_CDS_TPM_FLT3-ITD_mutation.svg)
 
-#### 3.2.1 Leucegene *pronostic* comparing selected features
+#### 5.2 Leucegene *pronostic* comparing selected features
 
 [figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/pronostic/CDS/lgn_pronostic_GE_TSNE_CDS_TPM_Cytogenetic%20risk.svg)
 ![Figure 2.1](FIGS/lgn_pronostic_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
