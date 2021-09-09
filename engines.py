@@ -61,7 +61,7 @@ class Engine:
             for width in self.WIDTHS: 
                 # generate_pca 
                 if self.RUN_PCA:
-                    self.PCA = self.datasets[cohort].data[width].generate_pca(outpath = self.OUTPATHS["RES"])
+                    self.PCA = self.datasets[cohort].data[width].generate_pca()
 
                     if self.RUN_GO:
                         self.GO = functions.get_ontologies(self.datasets, 

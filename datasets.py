@@ -1,3 +1,4 @@
+from operator import xor
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -6,10 +7,42 @@ import os
 from sklearn.decomposition import PCA 
 
 class Data:
-    def __init__(self,x, y , name = "data") -> None:
+    def __init__(self,GE, y , name = "data") -> None:
         self.name = name
-        self.x = x
+        self.GE = GE
+        self.x = GE
         self.y = y
+        self._reindex_targets()
+
+    def generate_pca(self):
+        print("Running PCA...")
+        
+        # init object
+        self._pca = PCA()
+        # fit to data
+        self._xpca = pd.DataFrame(self._pca.fit_transform(self.x), index = self.x.index)
+        # get loadings
+        # 
+        # transform in self.NS dimensions
+        # 
+        # Writes to file 
+        # 
+        return {"proj_x":self._xpca, "pca":self._pca }
+    
+    def set_input_targets(self, input):
+        # input
+        if input == "pca":
+            self.x = self._xpca
+        elif input == "clinf":
+            self.x = self.y[np.setdiff1d(self.y.columns, ["Overall_Survival_Time_days", "Overall_Survival_Status"])] # do smthing
+        else :
+            self.x = self.x 
+        # targets
+        self.y = self.y[["Overall_Survival_Time_days", "Overall_Survival_Status"]]
+        self.y.columns = ["t", "e"]
+        
+    def shuffle(self):
+        self.x = self.x.sample(frac = 1)
         self._reindex_targets()
 
     def create_shuffles(self, n):
@@ -34,21 +67,7 @@ class Leucegene_Dataset():
         self._load_ge_tpm() # load in and preprocess Gene Expression file    
         self._set_data()
      
-    def generate_pca(datasets, cohort, width, outpath):
-        print("Running PCA...")
-        # init object
-        pca = PCA()
-        # fit to data
-        proj_data = pca.fit_transform(datasets[cohort].data[width].x)
-        # get loadings
-        # 
-        # transform in self.NS dimensions
-        # 
-        # Writes to file 
-        # 
-        return {"proj_x":proj_data, "pca":pca }
     
-
     def _set_data(self):
           
         # select cds
