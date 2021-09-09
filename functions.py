@@ -1,6 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
-from sklearn.decomposition import PCA 
+
 from sklearn.manifold import TSNE
 import numpy as np
 import pdb
@@ -12,19 +12,7 @@ import itertools as it
 import pandas as pd
 from obo.read import read_obo 
 
-def generate_pca(datasets, cohort, width, outpath):
-    print("Running PCA...")
-    # init object
-    pca = PCA()
-    # fit to data
-    proj_data = pca.fit_transform(datasets[cohort].data[width].x)
-    # get loadings
-    # 
-    # transform in self.NS dimensions
-    # 
-    # Writes to file 
-    # 
-    return {"proj_x":proj_data, "pca":pca }
+
 
 def XL_mHG_test(gene_set, go_matrix):
     pdb.set_trace()

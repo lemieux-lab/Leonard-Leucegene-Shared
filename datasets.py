@@ -3,6 +3,7 @@ import pandas as pd
 from tqdm import tqdm
 import pdb
 import os 
+from sklearn.decomposition import PCA 
 
 class Data:
     def __init__(self,x, y , name = "data") -> None:
@@ -32,7 +33,22 @@ class Leucegene_Dataset():
         print("Loading Gene Expression file ...")
         self._load_ge_tpm() # load in and preprocess Gene Expression file    
         self._set_data()
+     
+    def generate_pca(datasets, cohort, width, outpath):
+        print("Running PCA...")
+        # init object
+        pca = PCA()
+        # fit to data
+        proj_data = pca.fit_transform(datasets[cohort].data[width].x)
+        # get loadings
+        # 
+        # transform in self.NS dimensions
+        # 
+        # Writes to file 
+        # 
+        return {"proj_x":proj_data, "pca":pca }
     
+
     def _set_data(self):
           
         # select cds

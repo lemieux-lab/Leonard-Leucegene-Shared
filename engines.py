@@ -7,6 +7,7 @@ import functions
 import pandas as pd
 import pdb 
 import numpy as np
+import models
 
 class Engine:
     def __init__(self, params):
@@ -20,6 +21,8 @@ class Engine:
         self.WIDTHS = params.WIDTHS # str list
         self.RUN_GO = params.GO # bool
         self.GO_TOP_N = params.GO_TOP_N # int
+        self.RUN_CPH = params.CPH
+        self.RUN_CPHDNN = params.CPHDNN
         self._init_CF_files()
         self._load_datasets()
         # HARDCODE
@@ -58,10 +61,7 @@ class Engine:
             for width in self.WIDTHS: 
                 # generate_pca 
                 if self.RUN_PCA:
-                    self.PCA = functions.generate_pca(self.datasets, 
-                    cohort = cohort, 
-                    width = width, 
-                    outpath = self.OUTPATHS["RES"])
+                    self.PCA = self.datasets[cohort].data[width].generate_pca(outpath = self.OUTPATHS["RES"])
 
                     if self.RUN_GO:
                         self.GO = functions.get_ontologies(self.datasets, 
@@ -80,7 +80,25 @@ class Engine:
                         base_outpath = self.OUTPATHS["RES"]
                         )
                 # generate ontologies pca
-
+                
+                # run CPH_DNN
+                if self.RUN_CPH:
+                    # run PCA + CPH
+                    pca_cph = models.train(self.datasets[cohort].data[width], "CPH", input= "pca")
+                    # run CLINF + CPH
+                    clinf_cph = models.train(self.datasets[cohort].data[width],"CPH", input = "clinf")
+                    # run PCA + CLINF + CPH 
+                    pca_clinf_cph = models.train(self.datasets[cohort].data[width], "CPH", input = "clinf+pca")
+                 
+                if self.RUN_CPHDNN:
+                    # run PCA + CPHDNN
+                    pca_cphdnn = models.train(self.datasets[cohort].data[width], "CPHDNN", input  = "pca")
+                    # run CLINF + CPHDNN
+                    pca_clinf_cphdnn = models.train(self.datasets[cohort].data[width], "CPHDNN", input = "clinf+pca")
+                    if self.FIXED_EMB:
+                        # run FACT_EMB + CPHDNN
+                        print("Not yet implemented ...")
+                                                         
                 # generate TSNE
                 if self.RUN_TSNE: 
                     self.tsne_data = functions.generate_tsne(self.datasets, 

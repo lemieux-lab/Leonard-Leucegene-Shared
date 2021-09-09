@@ -154,25 +154,38 @@ python3 main.py -PCA -TSNE -PLOT
 ### 2.7 Automatic feature detection with Supervised Machine Learning 
 pending...
 
-## 3. Predicting Survival using factorized Embeddings Cox-PH-DNN
+## 3. Predicting Survival using Cox-PH and Derivates
+
 ### 3.1 Benchmarks
 ```
-python3 main.py -FACT_EMB -B
+python3 main.py -CPH 
 ```
 * Trains & test PCA + CPH model
 * Trains & test CLINF + CPH model
 * Trains & test PCA + CLINF + CPH model
-* Trains & test PCA + CPHDNN model
+
 
 ### 3.2 Fixed Factorized Embeddings + Cox-PH-DNN
+
+
+#### 3.2.1 Cox-PH-DNN with PCA input
+
 ```
-python3 main.py -FACT_EMB -EMB <embedding_file>
+python3 main.py -CPHDNN
+```
+* Trains & test PCA + CPHDNN model
+
+#### 3.2.2 Cox-PH-DNN with fixed embedding file 
+
+```
+python3 main.py -CPHDNN -FIXED_EMB <embedding_filename>
 ```
 * Trains & test Fixed Embedding + CPHDNN model
 
+
 ### 3.3 Simultaneous training of Fact-EMb-CPHDNN
 ```
-python3 main.py -FACT_EMB
+python3 main.py -CPHDNN -FACT_EMB
 ```
 * Trains & test Factorized Embedding + CPHDNN model
 
