@@ -7,10 +7,9 @@ import os
 from sklearn.decomposition import PCA 
 
 class Data:
-    def __init__(self,GE, y , name = "data") -> None:
+    def __init__(self,x, y , name = "data") -> None:
         self.name = name
-        self.GE = GE
-        self.x = GE
+        self.x = x
         self.y = y
         self._reindex_targets()
 
@@ -45,6 +44,15 @@ class Data:
         self.x = self.x.sample(frac = 1)
         self._reindex_targets()
 
+    def split_train_test(self, nfolds):
+        test_x = self.x.sample(frac =0.2)
+        test_y = self.y.loc[test_x.index]
+        train_x = self.x.loc[~self.x.index.isin(test_x.index)]
+        train_y = self.y.loc[train_x.index]
+        self.train = Data(train_x, train_y)
+        self.test = Data(test_x,test_y)
+
+
     def create_shuffles(self, n):
         print(f"Creates {n} data shuffles ...")
         self.shuffles = [self.x.sample(frac =1).index for i in range(n)]
@@ -55,6 +63,7 @@ class Data:
 
     def _reindex_targets(self):
         self.y = self.y.loc[self.x.index]
+
 
 class Leucegene_Dataset():
     def __init__(self, cohort) -> None:

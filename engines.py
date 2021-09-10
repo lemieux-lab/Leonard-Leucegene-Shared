@@ -84,17 +84,17 @@ class Engine:
                 # run CPH_DNN
                 if self.RUN_CPH:
                     # run PCA + CPH
-                    pca_cph = models.train(self.datasets[cohort].data[width], "CPH", input= "pca")
+                    pca_cph = models.train_test(self.datasets[cohort].data[width], "CPH", input= "pca")
                     # run CLINF + CPH
-                    clinf_cph = models.train(self.datasets[cohort].data[width],"CPH", input = "clinf")
+                    clinf_cph = models.train_test(self.datasets[cohort].data[width],"CPH", input = "clinf")
                     # run PCA + CLINF + CPH 
-                    pca_clinf_cph = models.train(self.datasets[cohort].data[width], "CPH", input = "clinf+pca")
+                    pca_clinf_cph = models.train_test(self.datasets[cohort].data[width], "CPH", input = "clinf+pca")
                  
                 if self.RUN_CPHDNN:
                     # run PCA + CPHDNN
-                    pca_cphdnn = models.train(self.datasets[cohort].data[width], "CPHDNN", input  = "pca")
+                    pca_cphdnn = models.train_test(self.datasets[cohort].data[width], "CPHDNN", input  = "pca")
                     # run CLINF + CPHDNN
-                    pca_clinf_cphdnn = models.train(self.datasets[cohort].data[width], "CPHDNN", input = "clinf+pca")
+                    pca_clinf_cphdnn = models.train_test(self.datasets[cohort].data[width], "CPHDNN", input = "clinf+pca")
                     if self.FIXED_EMB:
                         # run FACT_EMB + CPHDNN
                         print("Not yet implemented ...")

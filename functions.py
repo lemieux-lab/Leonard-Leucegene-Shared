@@ -1,6 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
-
+import lifelines
 from sklearn.manifold import TSNE
 import numpy as np
 import pdb
@@ -12,6 +12,12 @@ import itertools as it
 import pandas as pd
 from obo.read import read_obo 
 
+
+def compute_c_index(T,E, partial_hazards):
+    c_index = lifelines.utils.concordance_index(T, partial_hazards,E)
+    if c_index < 0.5 :
+        c_index = lifelines.utils.concordance_index(T, -partial_hazards,E)
+    return c_index
 
 
 def XL_mHG_test(gene_set, go_matrix):
