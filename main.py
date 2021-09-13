@@ -10,10 +10,10 @@ def main():
     eng = Engine(
         params = args, 
         )
-    # load leucegene_public dataset
-    eng.run() # for default CDS 
+    eng.run_visualisations() 
     end = datetime.now()
-    print(f"DONE\t{end-start} s")     
+    print(f"DONE\t{end-start} s") 
+    eng.run_benchmarks()    
     if args.debug : pdb.set_trace()
     
 if __name__ == "__main__":

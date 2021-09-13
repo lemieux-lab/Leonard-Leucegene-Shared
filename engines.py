@@ -1,4 +1,5 @@
 # custom
+from re import I
 from datasets import Leucegene_Dataset
 # base
 from datetime import datetime
@@ -23,6 +24,7 @@ class Engine:
         self.GO_TOP_N = params.GO_TOP_N # int
         self.RUN_CPH = params.CPH
         self.RUN_CPHDNN = params.CPHDNN
+        self.BENCHMARKS = params.BENCHMARKS
         self._init_CF_files()
         self._load_datasets()
         # HARDCODE
@@ -55,8 +57,35 @@ class Engine:
         for cohort in self.COHORTS:
             ds.append([cohort, Leucegene_Dataset(cohort = cohort)])
         self.datasets = dict(ds)
+    
+    def run_benchmarks(self):
+        # fix cohort and width
+        cohort = "pronostic"
+        # width
+        width = "CDS"
+        # init results
+        res = []
+        # set input 
+        for input in self.BENCHMARKS:
+            # set data
+            data = self.datasets[cohort].data[width]
+            data.set_input_targets(input = input.split("-")[1])
+            data.shuffle()
+            data.split_train_test(nfolds = 10) # 10 fold cross-val
+            test_data = data.folds[0].test
+            train_data = data.folds[0].train
+            # choose model type and launch HP optim
+            res = models.hpoptim(train_data, model_type = input.split("-")[0], n = 100)
+            res.to_csv(f"{self.OUTPATHS['RES']}/benchmark.csv")
+            pdb.set_trace()
+            # inference
+            # out = model.forward(test_data.x)
+            # c_index = utils.concordance_index(out, test_data.y["t"], test_data.y["e"])
+            # res.append([input, 1, 5, 10, 500, c_index])
+        # res = pd.DataFrame(res, columms = ["model_type","replicate_n", "internal_cv", "external_cv", "n_epochs", "c_index"])
+        pdb.set_trace()
 
-    def run(self):
+    def run_visualisations(self):
         for cohort in self.COHORTS:
             for width in self.WIDTHS: 
                 # generate_pca 

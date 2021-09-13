@@ -30,8 +30,12 @@ class Data:
     
     def set_input_targets(self, input):
         # input
-        if input == "pca":
-            self.x = self._xpca
+        if input == "PCA":
+            try: 
+                self.x = self._xpca
+            except Exception:
+                self.generate_pca()
+                self.x = self._xpca
         elif input == "clinf":
             self.x = self.y[np.setdiff1d(self.y.columns, ["Overall_Survival_Time_days", "Overall_Survival_Status"])] # do smthing
         else :
@@ -44,13 +48,29 @@ class Data:
         self.x = self.x.sample(frac = 1)
         self._reindex_targets()
 
-    def split_train_test(self, nfolds):
-        test_x = self.x.sample(frac =0.2)
+    """ def split_train_test(self, nfolds):
+        test_x = self.x.sample(frac =frac)
         test_y = self.y.loc[test_x.index]
         train_x = self.x.loc[~self.x.index.isin(test_x.index)]
         train_y = self.y.loc[train_x.index]
         self.train = Data(train_x, train_y)
         self.test = Data(test_x,test_y)
+     """
+    def split_train_test(self, nfolds):
+        dummy_ds = self.x.sample(frac = 1)
+        
+        n = self.x.shape[0]
+        fold_size = int(float(n)/nfolds)
+        self.folds = []
+        for i in range(nfolds):
+            fold_ids = np.arange(i * fold_size, min((i + 1) * fold_size, n))
+            test_x = dummy_ds.iloc[fold_ids,:]
+            test_y = self.y.loc[test_x.index]
+            train_x = self.x.loc[~self.x.index.isin(test_x.index)]
+            train_y = self.y.loc[train_x.index]
+            self.folds.append(Data(self.x, self.y))
+            self.folds[i].train = Data(train_x, train_y)
+            self.folds[i].test = Data(test_x,test_y)
 
 
     def create_shuffles(self, n):

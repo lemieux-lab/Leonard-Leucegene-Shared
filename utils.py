@@ -11,6 +11,7 @@ def parse_arguments():
     parser.add_argument("-MAX_PC", dest = "MAX_PC", type = int,  default = 10, help = "Number of PC to be analysed (GO enrichment, figures)" )
     parser.add_argument("-GO_TOP_N", dest = "GO_TOP_N", type = int,  default = 1000, help = "Number of genes in gene set when performing GO enrichment analysis" )
     parser.add_argument("-FIXED_EMB", dest = "EMB_FILE", type = str, help = "name of embedding file used for fixed embedding mode CPH training prediction.")
+    parser.add_argument("-B", dest = "BENCHMARKS", type = str, nargs = "+", default = ["CPH-PCA"], help= "list of benchmarked models for survival prediction")
 
     # TRUE FALSE control parameters
     parser.add_argument("-PCA", dest = "PCA", action="store_true")
@@ -20,7 +21,6 @@ def parse_arguments():
     parser.add_argument("-CPH", dest = "CPH", action = "store_true") 
     parser.add_argument("-CPHDNN", dest = "CPHDNN", action = "store_true")  
     parser.add_argument("-FACT_EMB", dest = "FACT_EMB", action = "store_true")
-    parser.add_argument("-B", dest = "BENCHMARKS", action = "store_true")
     
     
     args = parser.parse_args()
