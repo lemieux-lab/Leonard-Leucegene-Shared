@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import functions
 from tqdm import tqdm 
+import os
 
 # classes 
 class CPH():
@@ -37,6 +38,35 @@ class CPH():
 class CPHDNN():
     def __init__(self, data):
         self.data = data
+        self.params = DefaultDict()
+        self.params["device"] = "cuda:0"
+        self.params["crossval_nfolds"] = 5
+        self.params["epochs"] = 300
+        self.params["lr"] = 1e-5
+        self.params["c_index_cross_val"] = 0
+        self.params["c_index_training"] = 0
+        self.params["machine"] = os.uname()[1]
+        self.params["process_id"] = os.getpid() 
+        self.cols = ["process_id", "crossval_nfolds", "lr", "epochs","input_size","nInPCA",  "wd", "W", "D", "nL","c_index_training", "c_index_cross_val", "cpt_time"]    
+
+    
+    def set_random_hps(self):
+        # weight decay or L2
+        self.params["input_size"] = self.data.folds[0].train.x.shape[1] # dataset dependent!
+        self.params["wd"] = np.power(10, np.random.uniform(-10, -9)) # V2 reasonable range for WD after analysis on V1 
+        self.params["W"] = np.random.randint(3,2048) # V2 Reasonable
+        self.params["D"] = np.random.randint(2,4) # V2 Reasonable
+        # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
+        self.params["nL"] = np.random.choice([nn.ReLU()]) 
+        self.params["ARCH"] = {
+            "W": np.concatenate( [[  ## ARCHITECTURE ###
+            self.params["input_size"]], ### INSIZE
+            np.ones(self.params["D"] - 1) * self.params["W"], ### N hidden = D - 1  
+            [1]]).astype(int), ### OUTNODE 
+            "nL": np.array([self.params["nL"] for i in range(self.params["D"])]),
+            # "dp": np.ones(self.params["D"]) * self.params["dp"] 
+        }
+        self.params["nInPCA"] = np.random.randint(2,26)
 
 def train_test(data, model_type, input):
     # define data
@@ -68,7 +98,7 @@ def hpoptim(data, model_type, n = 100, nfolds = 5):
 
         c_index = []
         # cycle through folds
-        for fold_n in tqdm(range (nfolds), desc = f"N{rep_n + 1} Internal Cross Val"):
+        for fold_n in tqdm(range (nfolds), desc = f"{model_type} - N{rep_n + 1} - Internal Cross Val"):
             # train
             model._train(fold_n)
             # test 

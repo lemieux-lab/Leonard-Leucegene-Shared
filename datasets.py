@@ -42,7 +42,10 @@ class Data:
             # shuffle cols
             self.x = self.x[np.random.permutation(self.x.columns)]
             # evaluate variance in cols, drop low variance ones
+            nrem  = (self.x.var(0) < 0.001).sum()
             self.x = self.x.T[(self.x.var(0) > 0.001)].T
+            
+            print(f"Removed {nrem} columns with low variance")
             
         elif input == "clinf":
             self.x = self.y[np.setdiff1d(self.y.columns, ["Overall_Survival_Time_days", "Overall_Survival_Status"])] # do smthing
@@ -57,6 +60,7 @@ class Data:
         self._reindex_targets()
 
     def fetch_embedding(self, embfilepath):
+        print("Fetching embedding file...")
         emb_x = pd.read_csv(embfilepath, index_col=0)
         self._xemb = emb_x[emb_x.index.isin(self.y.index)]
         

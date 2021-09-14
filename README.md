@@ -177,11 +177,11 @@ values: ["CPH-PCA", "CPHDNN-PCA", "CPHDNN-FE"]
 * repeat 10 times to get full cross-validated performance across cohort.
 
 
-### 3.2 Simultaneous training of Fact-EMb-CPHDNN
+### 3.2 Simultaneous training of Fact-EMB-CPHDNN
 ```
-python3 main.py -B CPHDNN-FE -
+python3 main.py -B CPHDNN-FE 
 ```
-* Trains & test Factorized Embedding + CPHDNN model
+* Trains & test Factorized Embedding + CPHDNN model: *currently in progress*
 
 ## 4. Discussion
 
