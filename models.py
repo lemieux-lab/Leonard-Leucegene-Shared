@@ -1,13 +1,16 @@
 # imports
 import pdb
 from typing import DefaultDict
+from collections import OrderedDict
 from lifelines import CoxPHFitter
 import pandas as pd
 import numpy as np
 import functions
 from tqdm import tqdm 
 import os
-
+from torch import nn
+import torch
+import utils 
 # classes 
 class CPH():
     def __init__(self, data):
@@ -15,7 +18,7 @@ class CPH():
         self.data = data
         self.params = DefaultDict()
 
-    def set_random_hps(self):
+    def set_random_params(self):
         # weight decay or L2
         self.params["wd"] = np.power(10, np.random.uniform(-10,-9))
         # set number of input PCs
@@ -35,13 +38,14 @@ class CPH():
         self.out = self.model.predict_log_partial_hazard(self.data.folds[fold_index].test.x)
         return self.out 
 
-class CPHDNN():
+class CPHDNN(nn.Module):
     def __init__(self, data):
+        super(CPHDNN, self).__init__()
         self.data = data
         self.params = DefaultDict()
         self.params["device"] = "cuda:0"
         self.params["crossval_nfolds"] = 5
-        self.params["epochs"] = 300
+        self.params["epochs"] = 30
         self.params["lr"] = 1e-5
         self.params["c_index_cross_val"] = 0
         self.params["c_index_training"] = 0
@@ -49,8 +53,13 @@ class CPHDNN():
         self.params["process_id"] = os.getpid() 
         self.cols = ["process_id", "crossval_nfolds", "lr", "epochs","input_size","nInPCA",  "wd", "W", "D", "nL","c_index_training", "c_index_cross_val", "cpt_time"]    
 
-    
-    def set_random_hps(self):
+        
+        self.loss_training = []
+        self.loss_valid = []
+        self.c_index_training = []
+        self.c_index_valid = []
+
+    def set_random_params(self):
         # weight decay or L2
         self.params["input_size"] = self.data.folds[0].train.x.shape[1] # dataset dependent!
         self.params["wd"] = np.power(10, np.random.uniform(-10, -9)) # V2 reasonable range for WD after analysis on V1 
@@ -67,6 +76,97 @@ class CPHDNN():
             # "dp": np.ones(self.params["D"]) * self.params["dp"] 
         }
         self.params["nInPCA"] = np.random.randint(2,26)
+        self.setup_stack()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr = self.params["lr"], weight_decay = self.params["wd"])        
+
+    def forward(self, x):
+        risk = self.stack(x)
+        return risk # torch.clamp(risk, min = -1000, max = 10)
+    
+    def loss(self, out, T, E): 
+        uncensored_likelihood = torch.zeros(E.size())# list of uncensored likelihoods
+        for x_i, E_i in enumerate(E): # cycle through samples
+            if E_i == 1: # if uncensored ...
+                log_risk = torch.log(torch.sum(torch.exp(out[:x_i +1])))
+                uncensored_likelihood[x_i] = out[x_i] - log_risk # sub sum of log risks to hazard, append to uncensored likelihoods list
+        
+        loss = - uncensored_likelihood.sum() / (E == 1).sum() 
+        return loss 
+
+    def _train(self, foldn):
+        d =  self.data.folds[foldn].train
+        
+        bs = 24
+        N = d.x.shape[0]
+        self.nbatch = int(np.ceil(N / bs))
+        for e in tqdm(range(self.params["epochs"])): # add timer 
+            n = 0
+            loss = 0
+            c_index = 0
+            for i in range(self.nbatch):
+                train_ids = np.arange(i * bs , (i + 1) * bs)
+                sorted_ids = torch.argsort(d.y[train_ids,0], descending = True) 
+                train_features, train_T, train_E = d.x[sorted_ids], d.y[sorted_ids,0], d.y[sorted_ids,1]
+                # train
+                #print (f"train features: {train_features.size()}")
+                #print (f"train T: {train_T.size()}")
+                #print (f"train E: {train_E.size()}")
+                #print(f"epoch: {e + 1} [{i+1}/{self.nbatch}]") 
+                self.optimizer.zero_grad()
+                try:  ### WORKAROUND, NANS in output of model 
+                    out = self.forward(train_features)
+                    l = self.loss(out, train_T, train_E)
+                    if np.isnan(out.detach().cpu().numpy()).any():
+                        raise ValueError("NaNs detected in forward pass")  ### WORKAROUND, NANS in output of model 
+                    c = functions.compute_c_index(train_T.detach().cpu().numpy(), train_E.detach().cpu().numpy(), out.detach().cpu().numpy())
+                    #print(f"c_index: {c}")
+                    l.backward() 
+        
+                    self.optimizer.step()
+                    loss += l
+                    c_index += c
+                    n += 1
+                except ValueError:
+                    return 0
+                # print(f"loss: {loss/n}")
+                # print(f"c_index: {c_index/n}")
+            self.loss_training.append(loss.item() / n)
+            self.c_index_training.append(c_index / n)
+            # test
+            # for i, valid_data in enumerate(valid_dataloader):
+            #     sorted_ids = torch.argsort(valid_data["t"], descending = True)
+            #     valid_features, valid_T, valid_E = valid_data["data"][sorted_ids], valid_data["t"][sorted_ids], valid_data["e"][sorted_ids]
+            #     l, c = self.test(valid_features, valid_T, valid_E)
+            #     print(f"valid loss: {l}")
+            #     print(f"valid c_index: {c}")
+            #     self.loss_valid.append(l.item())
+            #     self.c_index_valid.append(c)
+    
+    def _test(self, foldn):
+        # forward prop
+        # loss
+        # c_index
+        d = self.data.folds[foldn].test
+        valid_features = d.x
+        valid_t = d.y[:,0]
+        valid_e = d.y[:,1]
+        out = self.forward(valid_features)
+        l = self.loss(out, valid_t, valid_e)
+        c = functions.compute_c_index(valid_t.detach().cpu().numpy(),valid_e.detach().cpu().numpy(), out.detach().cpu().numpy())
+        return out, l , c
+    
+    def setup_stack(self):
+        stack = []
+        print("Setting up stack... saving to GPU")
+        for layer_id in range(self.params["D"]):
+            stack.append([
+            [f"Linear_{layer_id}", nn.Linear(self.params["ARCH"]["W"][layer_id], self.params["ARCH"]["W"][layer_id + 1])],
+            [f"Non-Linearity_{layer_id}", self.params["ARCH"]["nL"][0]]])            
+        stack = np.concatenate(stack)
+        stack = stack[:-1]# remove last non linearity !!
+        self.stack = nn.Sequential(OrderedDict(stack)).to(self.params["device"])
+
+
 
 def train_test(data, model_type, input):
     # define data
@@ -90,30 +190,31 @@ def hpoptim(data, model_type, n = 100, nfolds = 5):
     model = model_picker[model_type](data)
     # split train / test (5)
     model.data.split_train_test(nfolds = 5) # 5 fold cross-val
+    if model_type == "CPHDNN": model.data.folds_to_cuda_tensors()
     res = []
     # for each replicate (100)
     for rep_n in range(n):
-        # fix (choose at random) set of HPs
-        model.set_random_hps()    
-
+        # fix (choose at random) set of params
+        model.set_random_params()        
         c_index = []
         # cycle through folds
         for fold_n in tqdm(range (nfolds), desc = f"{model_type} - N{rep_n + 1} - Internal Cross Val"):
+
             # train
             model._train(fold_n)
             # test 
-            out = model._test(fold_n)
+            out,l,c = model._test(fold_n)
             # record accuracy
-            c_index.append(functions.compute_c_index(model.data.folds[fold_n].test.y["t"], model.data.folds[fold_n].test.y["e"], out))
+            c_index.append(c)
         # compute aggregated c_index
         print(model.params, round(np.mean(c_index), 3))
-        res.append(np.concatenate([[model.params[key] for key in ["wd", "nIN"]], [round(np.mean(c_index ),3)]] ))
+        res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size", "D","W"]], [round(np.mean(c_index ),3)]] ))
 
         # for each fold (5)
             # train epochs (400)
             # test
-        # record agg score, hps
-    res = pd.DataFrame(res, columns = ["wd", "nIN", "c_index"] )
+        # record agg score, params
+    res = pd.DataFrame(res, columns = ["wd", "nIN", "D", "W", "c_index"] )
     res = res.sort_values(["c_index"], ascending = False)
     
     # return model

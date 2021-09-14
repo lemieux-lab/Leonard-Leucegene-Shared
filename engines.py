@@ -79,7 +79,7 @@ class Engine:
             
             # choose model type and launch HP optim
             res = models.hpoptim(train_data, model_type = input.split("-")[0], n = self.NREP_OPTIM)
-            res.to_csv(f"{self.OUTPATHS['RES']}/benchmark.csv")
+            res.to_csv(f"{self.OUTPATHS['RES']}/{input}_benchmark.csv")
             pdb.set_trace()
             # inference
             # out = model.forward(test_data.x)

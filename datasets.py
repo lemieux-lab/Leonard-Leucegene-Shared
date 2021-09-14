@@ -5,13 +5,25 @@ from tqdm import tqdm
 import pdb
 import os 
 from sklearn.decomposition import PCA 
+import torch
 
 class Data:
-    def __init__(self,x, y , name = "data") -> None:
+    def __init__(self,x, y , name = "data", reindex = True) -> None:
         self.name = name
         self.x = x
         self.y = y
-        self._reindex_targets()
+        if reindex: self._reindex_targets()
+    
+    def folds_to_cuda_tensors(self, device = "cuda:0"):
+        for i in range(len(self.folds)):
+            train_x = torch.Tensor(self.folds[i].train.x.values).to(device)
+            train_y = torch.Tensor(self.folds[i].train.y.values).to(device)
+            test_x = torch.Tensor(self.folds[i].test.x.values).to(device)
+            test_y = torch.Tensor(self.folds[i].test.y.values).to(device)
+            train = Data(x = train_x, y = train_y, reindex = False)
+            test = Data(x = test_x, y = test_y, reindex =False)
+            self.folds[i].train = train
+            self.folds[i].test = test
 
     def generate_pca(self):
         print("Running PCA...")
@@ -42,10 +54,10 @@ class Data:
             # shuffle cols
             self.x = self.x[np.random.permutation(self.x.columns)]
             # evaluate variance in cols, drop low variance ones
-            nrem  = (self.x.var(0) < 0.001).sum()
-            self.x = self.x.T[(self.x.var(0) > 0.001)].T
+            #nrem  = (self.x.var(0) < 0.001).sum()
+            #self.x = self.x.T[(self.x.var(0) > 0.001)].T
             
-            print(f"Removed {nrem} columns with low variance")
+            #print(f"Removed {nrem} columns with low variance")
             
         elif input == "clinf":
             self.x = self.y[np.setdiff1d(self.y.columns, ["Overall_Survival_Time_days", "Overall_Survival_Status"])] # do smthing
