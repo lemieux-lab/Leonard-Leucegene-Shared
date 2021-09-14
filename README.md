@@ -156,36 +156,30 @@ pending...
 
 ## 3. Predicting Survival using Cox-PH and Derivates
 
-### 3.1 Benchmarks
-```
-python3 main.py -CPH 
-```
-* Trains & test PCA + CPH model
-* Trains & test CLINF + CPH model
-* Trains & test PCA + CLINF + CPH model
-
-
-### 3.2 Fixed Factorized Embeddings + Cox-PH-DNN
-
-
-#### 3.2.1 Cox-PH-DNN with PCA input
+### 3.1 Different models are trained sequentially to predict survival
 
 ```
-python3 main.py -CPHDNN
+python3 main.py -B FIXED_EMB <embedding_file>
+name: BENCHMARKS
+default: "CPH-PCA"
+values: ["CPH-PCA", "CPHDNN-PCA", "CPHDNN-FE"]
 ```
-* Trains & test PCA + CPHDNN model
+* CPH-PCA : Trains & test PCA + CPH model
+* CPHDNN-PCA : Trains and test PCA + CPH-deep-neural-network model
+* CPHDNN-FE : Trains & test  CPH-deep-neural-network model with a Factorized Embedding (fixed) as input.
 
-#### 3.2.2 Cox-PH-DNN with fixed embedding file 
+#### training phase
+* data is loaded, then a test set (10%) is reserved, rest is used to train models.
+* training data is loaded into model, split into 5 folds 
+* Internal cross-validation is performed 100 times and best HPs are stored.
+* New model is created and trained with best HPs on whole training set.
+* Optimized trained model is returned and ready to be tested on test set.
+* repeat 10 times to get full cross-validated performance across cohort.
 
+
+### 3.2 Simultaneous training of Fact-EMb-CPHDNN
 ```
-python3 main.py -CPHDNN -FIXED_EMB <embedding_filename>
-```
-* Trains & test Fixed Embedding + CPHDNN model
-
-
-### 3.3 Simultaneous training of Fact-EMb-CPHDNN
-```
-python3 main.py -CPHDNN -FACT_EMB
+python3 main.py -B CPHDNN-FE -
 ```
 * Trains & test Factorized Embedding + CPHDNN model
 

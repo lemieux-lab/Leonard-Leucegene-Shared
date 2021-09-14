@@ -4,6 +4,8 @@ from engines import Engine
 # base
 import pdb
 from datetime import datetime
+import warnings
+warnings.filterwarnings('ignore', '.*do not.*', )
 def main():
     start = datetime.now()
     args = utils.parse_arguments()

@@ -36,6 +36,14 @@ class Data:
             except Exception:
                 self.generate_pca()
                 self.x = self._xpca
+
+        elif input == "FE":
+            self.x = self._xemb
+            # shuffle cols
+            self.x = self.x[np.random.permutation(self.x.columns)]
+            # evaluate variance in cols, drop low variance ones
+            self.x = self.x.T[(self.x.var(0) > 0.001)].T
+            
         elif input == "clinf":
             self.x = self.y[np.setdiff1d(self.y.columns, ["Overall_Survival_Time_days", "Overall_Survival_Status"])] # do smthing
         else :
@@ -48,14 +56,12 @@ class Data:
         self.x = self.x.sample(frac = 1)
         self._reindex_targets()
 
-    """ def split_train_test(self, nfolds):
-        test_x = self.x.sample(frac =frac)
-        test_y = self.y.loc[test_x.index]
-        train_x = self.x.loc[~self.x.index.isin(test_x.index)]
-        train_y = self.y.loc[train_x.index]
-        self.train = Data(train_x, train_y)
-        self.test = Data(test_x,test_y)
-     """
+    def fetch_embedding(self, embfilepath):
+        emb_x = pd.read_csv(embfilepath, index_col=0)
+        self._xemb = emb_x[emb_x.index.isin(self.y.index)]
+        
+
+        
     def split_train_test(self, nfolds):
         dummy_ds = self.x.sample(frac = 1)
         
@@ -86,10 +92,11 @@ class Data:
 
 
 class Leucegene_Dataset():
-    def __init__(self, cohort) -> None:
+    def __init__(self, cohort, embedding_file) -> None:
         self.COHORT = cohort
         print(f"Loading ClinF {self.COHORT} file ...")
         self.CF_file = f"Data/lgn_{self.COHORT}_CF"
+        self.EMB_FILE = embedding_file
         self.CF = pd.read_csv(self.CF_file, index_col = 0)  # load in and preprocess Clinical Features file
         self.NS = self.CF.shape[0]
         print("Loading Gene Expression file ...")
@@ -107,11 +114,16 @@ class Leucegene_Dataset():
         self._GE_CDS_TPM = self._GE_TPM.merge(self.gene_info[self.gene_info["gene_biotype_y"] == "protein_coding"], left_index = True, right_on = "featureID_y")
         # clean up
         self._GE_CDS_TPM.index = self._GE_CDS_TPM.SYMBOL
+        self.GE_CDS = np.log(self._GE_CDS_TPM.iloc[:,:-self.gene_info.shape[1]] + 1).T
+        self.GE_TRSC = np.log(self._GE_TPM + 1).T
         # set CDS data
-        cds_data = Data(np.log(self._GE_CDS_TPM.iloc[:,:-self.gene_info.shape[1]] + 1).T, self.CF, name = f"{self.COHORT}_CDS")
+        cds_data = Data(self.GE_CDS, self.CF, name = f"{self.COHORT}_CDS")
         # set TRSC data
-        trsc_data = Data(np.log(self._GE_TPM + 1).T, self.CF, name = f"{self.COHORT}_TRSC") 
+        trsc_data = Data(self.GE_TRSC, self.CF, name = f"{self.COHORT}_TRSC") 
+        cds_data.fetch_embedding(self.EMB_FILE)
+        trsc_data.fetch_embedding(self.EMB_FILE)
         self.data = {"CDS": cds_data, "TRSC": trsc_data}
+
 
     def dump_infos(self, outpath):
         # self.GE_CDS_TPM_LOG.to_csv(f"{outpath}/GE_CDS_TPM_LOG.csv")

@@ -18,11 +18,11 @@ class CPH():
         # weight decay or L2
         self.params["wd"] = np.power(10, np.random.uniform(-10,-9))
         # set number of input PCs
-        self.params["nPCs"] = np.random.randint(2, 50)
+        self.params["nIN"] = np.random.randint(2, self.data.folds[0].train.x.shape[1])
 
     def _train(self, fold_index):
         # create lifelines dataset
-        ds = pd.DataFrame(self.data.folds[fold_index].train.x.iloc[:,:self.params["nPCs"]])
+        ds = pd.DataFrame(self.data.folds[fold_index].train.x.iloc[:,:self.params["nIN"]])
         ds["T"] = self.data.folds[fold_index].train.y["t"]
         ds["E"] = self.data.folds[fold_index].y["e"]
         CPH = CoxPHFitter(penalizer = self.params["wd"], l1_ratio = 0.)
@@ -65,9 +65,10 @@ def hpoptim(data, model_type, n = 100, nfolds = 5):
     for rep_n in range(n):
         # fix (choose at random) set of HPs
         model.set_random_hps()    
+
         c_index = []
         # cycle through folds
-        for fold_n in tqdm(range (nfolds), desc = f"N{n} Internal Cross Val"):
+        for fold_n in tqdm(range (nfolds), desc = f"N{rep_n + 1} Internal Cross Val"):
             # train
             model._train(fold_n)
             # test 
@@ -76,13 +77,13 @@ def hpoptim(data, model_type, n = 100, nfolds = 5):
             c_index.append(functions.compute_c_index(model.data.folds[fold_n].test.y["t"], model.data.folds[fold_n].test.y["e"], out))
         # compute aggregated c_index
         print(model.params, round(np.mean(c_index), 3))
-        res.append(np.concatenate([[model.params[key] for key in ["wd", "nPCs"]], [round(np.mean(c_index ),3)]] ))
+        res.append(np.concatenate([[model.params[key] for key in ["wd", "nIN"]], [round(np.mean(c_index ),3)]] ))
 
         # for each fold (5)
             # train epochs (400)
             # test
         # record agg score, hps
-    res = pd.DataFrame(res, columns = ["wd", "nPCs", "c_index"] )
+    res = pd.DataFrame(res, columns = ["wd", "nIN", "c_index"] )
     res = res.sort_values(["c_index"], ascending = False)
     
     # return model

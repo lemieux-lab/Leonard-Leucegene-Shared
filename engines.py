@@ -25,6 +25,8 @@ class Engine:
         self.RUN_CPH = params.CPH
         self.RUN_CPHDNN = params.CPHDNN
         self.BENCHMARKS = params.BENCHMARKS
+        self.EMB_FILE = params.EMB_FILE
+        self.NREP_OPTIM = params.NREP_OPTIM
         self._init_CF_files()
         self._load_datasets()
         # HARDCODE
@@ -55,7 +57,7 @@ class Engine:
     def _load_datasets(self):
         ds = []
         for cohort in self.COHORTS:
-            ds.append([cohort, Leucegene_Dataset(cohort = cohort)])
+            ds.append([cohort, Leucegene_Dataset(cohort = cohort,embedding_file =self.EMB_FILE)])
         self.datasets = dict(ds)
     
     def run_benchmarks(self):
@@ -74,8 +76,9 @@ class Engine:
             data.split_train_test(nfolds = 10) # 10 fold cross-val
             test_data = data.folds[0].test
             train_data = data.folds[0].train
+            
             # choose model type and launch HP optim
-            res = models.hpoptim(train_data, model_type = input.split("-")[0], n = 100)
+            res = models.hpoptim(train_data, model_type = input.split("-")[0], n = self.NREP_OPTIM)
             res.to_csv(f"{self.OUTPATHS['RES']}/benchmark.csv")
             pdb.set_trace()
             # inference
