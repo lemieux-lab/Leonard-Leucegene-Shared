@@ -188,7 +188,7 @@ python3 main.py -B CPHDNN-FE
 ## 5. Figures 
 
 ### 5.1 Benchmarks from 01-09-2021
-[Figure 1.1](FIGS/benchmarks.svg)
+![Figure 1.1](FIGS/benchmarks.svg)
 ### 5.2 Leucegene *public* comparing selected features
 [figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic%20risk.svg)
 ![Figure 1.1](FIGS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
