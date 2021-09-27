@@ -9,6 +9,7 @@ import pandas as pd
 import pdb 
 import numpy as np
 import models
+from tqdm import tqdm 
 
 class Engine:
     def __init__(self, params):
@@ -27,6 +28,10 @@ class Engine:
         self.BENCHMARKS = params.BENCHMARKS
         self.EMB_FILE = params.EMB_FILE
         self.NREP_OPTIM = params.NREP_OPTIM
+        self.NEPOCHS = params.NEPOCHS
+        # HARDCODE
+        self.NFOLDS = 5
+        self.INT_NFOLDS = 5
         self._init_CF_files()
         self._load_datasets()
         # HARDCODE
@@ -71,23 +76,32 @@ class Engine:
         for input in self.BENCHMARKS:
             # set data
             data = self.datasets[cohort].data[width]
-            data.set_input_targets(input = input.split("-")[1])
+            data.set_input_targets(input = input.split("-")[1], filter = input.split("-")[0] == "CPH")
             data.shuffle()
-            data.split_train_test(nfolds = 10) # 10 fold cross-val
-            test_data = data.folds[0].test
-            train_data = data.folds[0].train
-            
-            # choose model type and launch HP optim
-            res = models.hpoptim(train_data, model_type = input.split("-")[0], n = self.NREP_OPTIM)
-            res.to_csv(f"{self.OUTPATHS['RES']}/{input}_benchmark.csv")
-            pdb.set_trace()
+            data.split_train_test(nfolds = self.NFOLDS) # 5 fold cross-val
+            for foldn in tqdm(range(self.NFOLDS)):
+                print(f"foldN: {foldn + 1}")
+                #pdb.set_trace()
+                #data.to_DF() # reset data to cpu
+                test_data = data.folds[0].test
+                train_data = data.folds[0].train
+                
+                # choose model type and launch HP optim
+                int_cv, opt_model = models.hpoptim(train_data, model_type = input.split("-")[0], n = self.NREP_OPTIM, nfolds = self.INT_NFOLDS, nepochs = self.NEPOCHS)
+                # test
+                out, l, c = opt_model._test(test_data)
+                if "CPHDNN" in input: epochs = opt_model.params["epochs"]
+                else: epochs = -999
+                res.append([foldn, input, self.NREP_OPTIM, self.NFOLDS, self.INT_NFOLDS, epochs,c])
+            int_cv.to_csv(f"{self.OUTPATHS['RES']}/{input}_intcv_benchmark.csv")
             # inference
             # out = model.forward(test_data.x)
             # c_index = utils.concordance_index(out, test_data.y["t"], test_data.y["e"])
             # res.append([input, 1, 5, 10, 500, c_index])
-        # res = pd.DataFrame(res, columms = ["model_type","replicate_n", "internal_cv", "external_cv", "n_epochs", "c_index"])
-        pdb.set_trace()
 
+        res = pd.DataFrame(res, columns = ["foldn", "model_type","nrep_optim",  "external_cv","internal_cv", "n_epochs", "c_index"])
+        res.to_csv(f"{self.OUTPATHS['RES']}/run_benchmarks.csv")
+        print(res) 
     def run_visualisations(self):
         for cohort in self.COHORTS:
             for width in self.WIDTHS: 

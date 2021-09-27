@@ -13,7 +13,7 @@ import torch
 import utils 
 # classes 
 class CPH():
-    def __init__(self, data):
+    def __init__(self, data, nepochs = 1):
 
         self.data = data
         self.params = DefaultDict()
@@ -22,11 +22,21 @@ class CPH():
         # weight decay or L2
         self.params["wd"] = np.power(10, np.random.uniform(-10,-9))
         # set number of input PCs
-        self.params["nIN"] = np.random.randint(2, self.data.folds[0].train.x.shape[1])
-
-    def _train(self, fold_index):
+        self.params["input_size"] = min(np.random.randint(2, self.data.folds[0].train.x.shape[1]), 50)
+    
+    def _train(self):
         # create lifelines dataset
-        ds = pd.DataFrame(self.data.folds[fold_index].train.x.iloc[:,:self.params["nIN"]])
+        ds = pd.DataFrame(self.data.x.iloc[:,:self.params["input_size"]])
+        ds["T"] = self.data.y["t"]
+        ds["E"] = self.data.y["e"]
+        CPH = CoxPHFitter(penalizer = self.params["wd"], l1_ratio = 0.)
+        self.model = CPH.fit(ds, duration_col = "T", event_col = "E")
+        l = self.model.log_likelihood_
+        c = self.model.concordance_index_
+
+    def _train_cv(self, fold_index):
+        # create lifelines dataset
+        ds = pd.DataFrame(self.data.folds[fold_index].train.x.iloc[:,:self.params["input_size"]])
         ds["T"] = self.data.folds[fold_index].train.y["t"]
         ds["E"] = self.data.folds[fold_index].y["e"]
         CPH = CoxPHFitter(penalizer = self.params["wd"], l1_ratio = 0.)
@@ -34,18 +44,40 @@ class CPH():
         l = self.model.log_likelihood_
         c = self.model.concordance_index_
     
-    def _test(self, fold_index):
-        self.out = self.model.predict_log_partial_hazard(self.data.folds[fold_index].test.x)
-        return self.out 
+    def _valid_cv(self, fold_index):
+        test_data = self.data.folds[fold_index].test
+        test_features = test_data.x
+        test_t = test_data.y["t"]
+        test_e = test_data.y["e"]
+        out = self.model.predict_log_partial_hazard(test_features)
+        l = self.loss(out, test_t, test_e)
+        c = functions.compute_c_index(test_t, test_e, out)
+        return out, l, c
+        
+    def set_fixed_params(self, hp_dict):
+
+        self.params = hp_dict
+
+    def _test(self, test_data):
+        test_features = test_data.x
+        test_t = test_data.y["t"]
+        test_e = test_data.y["e"]
+        out = self.model.predict_log_partial_hazard(test_features)
+        l = self.loss(out, test_t, test_e)
+        c = functions.compute_c_index(test_t, test_e, out)
+        return out, l, c
+    
+    def loss(self, out, T, E): 
+        return 999 
 
 class CPHDNN(nn.Module):
-    def __init__(self, data):
+    def __init__(self, data, nepochs = 1):
         super(CPHDNN, self).__init__()
         self.data = data
         self.params = DefaultDict()
         self.params["device"] = "cuda:0"
         self.params["crossval_nfolds"] = 5
-        self.params["epochs"] = 30
+        self.params["epochs"] = nepochs
         self.params["lr"] = 1e-5
         self.params["c_index_cross_val"] = 0
         self.params["c_index_training"] = 0
@@ -58,6 +90,12 @@ class CPHDNN(nn.Module):
         self.loss_valid = []
         self.c_index_training = []
         self.c_index_valid = []
+    
+    def set_fixed_params(self, hp_dict):
+
+        self.params = hp_dict
+        self.setup_stack()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr = self.params["lr"], weight_decay = self.params["wd"])        
 
     def set_random_params(self):
         # weight decay or L2
@@ -92,14 +130,53 @@ class CPHDNN(nn.Module):
         
         loss = - uncensored_likelihood.sum() / (E == 1).sum() 
         return loss 
-
-    def _train(self, foldn):
+    
+    def _train(self):
+        bs = 24
+        N = self.data.x.shape[0]
+        self.nbatch = int(np.ceil(N / bs))
+        self.data.to(self.params["device"])
+        d = self.data
+        for e in range(self.params["epochs"]): # add timer 
+            n = 0
+            loss = 0
+            c_index = 0
+            for i in range(self.nbatch):
+                train_ids = np.arange(i * bs , (i + 1) * bs)
+                sorted_ids = torch.argsort(d.y[train_ids,0], descending = True) 
+                train_features, train_T, train_E = d.x[sorted_ids], d.y[sorted_ids,0], d.y[sorted_ids,1]
+                # train
+                #print (f"train features: {train_features.size()}")
+                #print (f"train T: {train_T.size()}")
+                #print (f"train E: {train_E.size()}")
+                #print(f"epoch: {e + 1} [{i+1}/{self.nbatch}]") 
+                self.optimizer.zero_grad()
+                try:  ### WORKAROUND, NANS in output of model 
+                    out = self.forward(train_features)
+                    l = self.loss(out, train_T, train_E)
+                    if np.isnan(out.detach().cpu().numpy()).any():
+                        raise ValueError("NaNs detected in forward pass")  ### WORKAROUND, NANS in output of model 
+                    c = functions.compute_c_index(train_T.detach().cpu().numpy(), train_E.detach().cpu().numpy(), out.detach().cpu().numpy())
+                    #print(f"c_index: {c}")
+                    l.backward() 
+        
+                    self.optimizer.step()
+                    loss += l
+                    c_index += c
+                    n += 1
+                except ValueError:
+                    return 0
+                # print(f"loss: {loss/n}")
+                # print(f"c_index: {c_index/n}")
+            self.loss_training.append(loss.item() / n)
+            self.c_index_training.append(c_index / n)
+    def _train_cv(self, foldn):
         d =  self.data.folds[foldn].train
         
         bs = 24
         N = d.x.shape[0]
         self.nbatch = int(np.ceil(N / bs))
-        for e in tqdm(range(self.params["epochs"])): # add timer 
+        for e in range(self.params["epochs"]): # add timer 
             n = 0
             loss = 0
             c_index = 0
@@ -142,7 +219,7 @@ class CPHDNN(nn.Module):
             #     self.loss_valid.append(l.item())
             #     self.c_index_valid.append(c)
     
-    def _test(self, foldn):
+    def _valid_cv(self, foldn):
         # forward prop
         # loss
         # c_index
@@ -155,6 +232,16 @@ class CPHDNN(nn.Module):
         c = functions.compute_c_index(valid_t.detach().cpu().numpy(),valid_e.detach().cpu().numpy(), out.detach().cpu().numpy())
         return out, l , c
     
+    def _test(self, test_data):
+        test_data.to(self.params["device"])
+        test_features = test_data.x
+        test_t = test_data.y[:,0]
+        test_e = test_data.y[:,1]
+        out = self.forward(test_features)
+        l = self.loss(out, test_t, test_e)
+        c = functions.compute_c_index(test_t.detach().cpu().numpy(), test_e.detach().cpu().numpy(), out.detach().cpu().numpy())
+        return out, l, c
+
     def setup_stack(self):
         stack = []
         print("Setting up stack... saving to GPU")
@@ -185,13 +272,15 @@ def train_test(data, model_type, input):
     pdb.set_trace()
 
 model_picker = {"CPH": CPH, "CPHDNN": CPHDNN}
-def hpoptim(data, model_type, n = 100, nfolds = 5):
+def hpoptim(data, model_type, n = 100, nfolds = 5, nepochs = 1):
     # choose correct model, init
-    model = model_picker[model_type](data)
+    model = model_picker[model_type](data, nepochs = nepochs)
     # split train / test (5)
     model.data.split_train_test(nfolds = 5) # 5 fold cross-val
     if model_type == "CPHDNN": model.data.folds_to_cuda_tensors()
     res = []
+    best_params = None
+    best_c_index = 0
     # for each replicate (100)
     for rep_n in range(n):
         # fix (choose at random) set of params
@@ -201,24 +290,36 @@ def hpoptim(data, model_type, n = 100, nfolds = 5):
         for fold_n in tqdm(range (nfolds), desc = f"{model_type} - N{rep_n + 1} - Internal Cross Val"):
 
             # train
-            model._train(fold_n)
+            model._train_cv(fold_n)
             # test 
-            out,l,c = model._test(fold_n)
+            out,l,c = model._valid_cv(fold_n)
             # record accuracy
             c_index.append(c)
+        score = np.mean(c_index)
+        if score > best_c_index:
+            best_c_index = score
+            best_params = model.params
         # compute aggregated c_index
-        print(model.params, round(np.mean(c_index), 3))
-        res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size", "D","W"]], [round(np.mean(c_index ),3)]] ))
-
+        # print(model.params, round(score, 3))
+        if model_type == "CPHDNN":
+            res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size", "D","W"]], [round(np.mean(c_index ),3)]] ))
+        elif model_type == "CPH":
+           res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size"]], [round(np.mean(c_index ),3)]] )) 
         # for each fold (5)
             # train epochs (400)
             # test
         # record agg score, params
-    res = pd.DataFrame(res, columns = ["wd", "nIN", "D", "W", "c_index"] )
+    if model_type == "CPHDNN":
+        res = pd.DataFrame(res, columns = ["wd", "nIN", "D", "W", "c_index"] )
+    elif model_type == "CPH":
+        res = pd.DataFrame(res, columns = ["wd", "nIN", "c_index"] ) 
     res = res.sort_values(["c_index"], ascending = False)
-    
+    # RERUN model with best HPs
+    opt_model = model_picker[model_type](data)
+    opt_model.set_fixed_params(best_params)
+    opt_model._train()
     # return model
-    return res
+    return res, opt_model
 
 def main():
     # some test funcs

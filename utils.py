@@ -13,6 +13,7 @@ def parse_arguments():
     parser.add_argument("-FIXED_EMB", dest = "EMB_FILE", type = str, help = "name of embedding file used for fixed embedding mode CPH training prediction.")
     parser.add_argument("-B", dest = "BENCHMARKS", type = str, nargs = "+", default = ["CPH-PCA"], help= "list of benchmarked models for survival prediction")
     parser.add_argument("-N", dest = "NREP_OPTIM", default = 1, type = int, help = "number of optimizations for Hyper parameters")
+    parser.add_argument("-E", dest = "NEPOCHS", default = 1, type = int, help = "number of epochs for optim of DNN models")
     # TRUE FALSE control parameters
     parser.add_argument("-PCA", dest = "PCA", action="store_true")
     parser.add_argument("-GO", dest = "GO", action = "store_true")

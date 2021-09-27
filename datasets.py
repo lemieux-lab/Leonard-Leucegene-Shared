@@ -8,13 +8,15 @@ from sklearn.decomposition import PCA
 import torch
 
 class Data:
-    def __init__(self,x, y , name = "data", reindex = True) -> None:
+    def __init__(self,x, y , name = "data", reindex = True, device = "cpu") -> None:
         self.name = name
         self.x = x
         self.y = y
+        self.device = device
         if reindex: self._reindex_targets()
     
     def folds_to_cuda_tensors(self, device = "cuda:0"):
+        if "cuda" in self.device : return 
         for i in range(len(self.folds)):
             train_x = torch.Tensor(self.folds[i].train.x.values).to(device)
             train_y = torch.Tensor(self.folds[i].train.y.values).to(device)
@@ -24,7 +26,19 @@ class Data:
             test = Data(x = test_x, y = test_y, reindex =False)
             self.folds[i].train = train
             self.folds[i].test = test
+    
+    def to(self, device):    
+        if "cuda" in self.device: return 
+        self.x = torch.Tensor(self.x.values).to(device)
+        self.y = torch.Tensor(self.y.values).to(device)
+        self.device = device
 
+    def to_DF(self):
+        if "cuda" in self.device :
+            pdb.set_trace()
+            self.x = pd.DataFrame(self.x.detach().cpu().numpy())
+            self.y = pd.DataFrame(self.y.detach().cpu().numpy(), columns = ["t", "e"])
+    
     def generate_pca(self):
         print("Running PCA...")
         
@@ -40,7 +54,7 @@ class Data:
         # 
         return {"proj_x":self._xpca, "pca":self._pca }
     
-    def set_input_targets(self, input):
+    def set_input_targets(self, input, filter = False):
         # input
         if input == "PCA":
             try: 
@@ -54,10 +68,10 @@ class Data:
             # shuffle cols
             self.x = self.x[np.random.permutation(self.x.columns)]
             # evaluate variance in cols, drop low variance ones
-            #nrem  = (self.x.var(0) < 0.001).sum()
-            #self.x = self.x.T[(self.x.var(0) > 0.001)].T
-            
-            #print(f"Removed {nrem} columns with low variance")
+            if filter: 
+                nrem  = (self.x.var(0) < 0.001).sum()
+                self.x = self.x.T[(self.x.var(0) > 0.001)].T
+                print(f"Removed {nrem} columns with low variance")
             
         elif input == "clinf":
             self.x = self.y[np.setdiff1d(self.y.columns, ["Overall_Survival_Time_days", "Overall_Survival_Status"])] # do smthing
@@ -79,6 +93,7 @@ class Data:
 
         
     def split_train_test(self, nfolds):
+        if "cuda" in self.device: return # do nothing if dataset is already split! 
         dummy_ds = self.x.sample(frac = 1)
         
         n = self.x.shape[0]
