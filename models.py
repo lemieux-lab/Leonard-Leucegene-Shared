@@ -78,6 +78,7 @@ class CPHDNN(nn.Module):
         self.params["device"] = "cuda:0"
         self.params["crossval_nfolds"] = 5
         self.params["epochs"] = nepochs
+        self.params["opt_nepochs"] = 1000
         self.params["lr"] = 1e-5
         self.params["c_index_cross_val"] = 0
         self.params["c_index_training"] = 0
@@ -137,7 +138,7 @@ class CPHDNN(nn.Module):
         self.nbatch = int(np.ceil(N / bs))
         self.data.to(self.params["device"])
         d = self.data
-        for e in range(self.params["epochs"]): # add timer 
+        for e in tqdm(range(self.params["opt_nepochs"]), desc="TRAINING FINAL MODEL"): # add timer 
             n = 0
             loss = 0
             c_index = 0
@@ -243,6 +244,7 @@ class CPHDNN(nn.Module):
         return out, l, c
 
     def setup_stack(self):
+        
         stack = []
         print("Setting up stack... saving to GPU")
         for layer_id in range(self.params["D"]):
@@ -252,7 +254,7 @@ class CPHDNN(nn.Module):
         stack = np.concatenate(stack)
         stack = stack[:-1]# remove last non linearity !!
         self.stack = nn.Sequential(OrderedDict(stack)).to(self.params["device"])
-
+        
 
 
 def train_test(data, model_type, input):
@@ -273,6 +275,7 @@ def train_test(data, model_type, input):
 
 model_picker = {"CPH": CPH, "CPHDNN": CPHDNN}
 def hpoptim(data, model_type, n = 100, nfolds = 5, nepochs = 1):
+    
     # choose correct model, init
     model = model_picker[model_type](data, nepochs = nepochs)
     # split train / test (5)
@@ -283,12 +286,14 @@ def hpoptim(data, model_type, n = 100, nfolds = 5, nepochs = 1):
     best_c_index = 0
     # for each replicate (100)
     for rep_n in range(n):
+        
         # fix (choose at random) set of params
         model.set_random_params()        
         c_index = []
+
         # cycle through folds
         for fold_n in tqdm(range (nfolds), desc = f"{model_type} - N{rep_n + 1} - Internal Cross Val"):
-
+                
             # train
             model._train_cv(fold_n)
             # test 
@@ -309,6 +314,7 @@ def hpoptim(data, model_type, n = 100, nfolds = 5, nepochs = 1):
             # train epochs (400)
             # test
         # record agg score, params
+        
     if model_type == "CPHDNN":
         res = pd.DataFrame(res, columns = ["wd", "nIN", "D", "W", "c_index"] )
     elif model_type == "CPH":

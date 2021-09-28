@@ -8,10 +8,11 @@ from sklearn.decomposition import PCA
 import torch
 
 class Data:
-    def __init__(self,x, y , name = "data", reindex = True, device = "cpu") -> None:
+    def __init__(self,x, y ,gene_info, name = "data", reindex = True, device = "cpu") -> None:
         self.name = name
         self.x = x
         self.y = y
+        self.gene_info = gene_info
         self.device = device
         if reindex: self._reindex_targets()
     
@@ -22,8 +23,8 @@ class Data:
             train_y = torch.Tensor(self.folds[i].train.y.values).to(device)
             test_x = torch.Tensor(self.folds[i].test.x.values).to(device)
             test_y = torch.Tensor(self.folds[i].test.y.values).to(device)
-            train = Data(x = train_x, y = train_y, reindex = False)
-            test = Data(x = test_x, y = test_y, reindex =False)
+            train = Data(x = train_x, y = train_y, gene_info = None, reindex = False)
+            test = Data(x = test_x, y = test_y, gene_info = None, reindex =False)
             self.folds[i].train = train
             self.folds[i].test = test
     
@@ -53,33 +54,47 @@ class Data:
         # Writes to file 
         # 
         return {"proj_x":self._xpca, "pca":self._pca }
-    
-    def set_input_targets(self, input, filter = False):
+    def LSC17(self):
+        
+        lsc17 = pd.read_csv("SIGNATURES/LSC17_expressions.csv", index_col = 0)
+        #LSC17_expressions = self.x[self.x.columns[self.x.columns.isin(lsc17.merge(self.gene_info, left_on = "ensmbl_id_version", right_on = "featureID_x").featureID_y)]]
+        return lsc17
+
+    def set_input_targets(self, input, embfile = None):
+        self.model_type = input.split("-")[0]
+        self.data_type = input.split("-")[1]
         # input
-        if input == "PCA":
+        if self.data_type == "LSC17":
+            # do something
+            self.x = self.LSC17()
+        
+        if self.data_type == "PCA":
             try: 
                 self.x = self._xpca
             except Exception:
                 self.generate_pca()
                 self.x = self._xpca
 
-        elif input == "FE":
+        elif self.data_type == "FE":
+            self.fetch_embedding(embfile)
             self.x = self._xemb
             # shuffle cols
             self.x = self.x[np.random.permutation(self.x.columns)]
             # evaluate variance in cols, drop low variance ones
-            if filter: 
+            if self.model_type == "CPH":
                 nrem  = (self.x.var(0) < 0.001).sum()
                 self.x = self.x.T[(self.x.var(0) > 0.001)].T
                 print(f"Removed {nrem} columns with low variance")
             
-        elif input == "clinf":
+        elif self.data_type == "clinf":
             self.x = self.y[np.setdiff1d(self.y.columns, ["Overall_Survival_Time_days", "Overall_Survival_Status"])] # do smthing
         else :
             self.x = self.x 
+
         # targets
-        self.y = self.y[["Overall_Survival_Time_days", "Overall_Survival_Status"]]
-        self.y.columns = ["t", "e"]
+        if len(self.y.columns) > 2:
+            self.y = self.y[["Overall_Survival_Time_days", "Overall_Survival_Status"]]
+            self.y.columns = ["t", "e"]
         
     def shuffle(self):
         self.x = self.x.sample(frac = 1)
@@ -105,9 +120,9 @@ class Data:
             test_y = self.y.loc[test_x.index]
             train_x = self.x.loc[~self.x.index.isin(test_x.index)]
             train_y = self.y.loc[train_x.index]
-            self.folds.append(Data(self.x, self.y))
-            self.folds[i].train = Data(train_x, train_y)
-            self.folds[i].test = Data(test_x,test_y)
+            self.folds.append(Data(self.x, self.y,  self.gene_info))
+            self.folds[i].train = Data(train_x, train_y, self.gene_info)
+            self.folds[i].test = Data(test_x,test_y, self.gene_info)
 
 
     def create_shuffles(self, n):
@@ -148,12 +163,11 @@ class Leucegene_Dataset():
         self.GE_CDS = np.log(self._GE_CDS_TPM.iloc[:,:-self.gene_info.shape[1]] + 1).T
         self.GE_TRSC = np.log(self._GE_TPM + 1).T
         # set CDS data
-        cds_data = Data(self.GE_CDS, self.CF, name = f"{self.COHORT}_CDS")
+        cds_data = Data(self.GE_CDS, self.CF, self.gene_info, name = f"{self.COHORT}_CDS")
         # set TRSC data
-        trsc_data = Data(self.GE_TRSC, self.CF, name = f"{self.COHORT}_TRSC") 
-        cds_data.fetch_embedding(self.EMB_FILE)
-        trsc_data.fetch_embedding(self.EMB_FILE)
-        self.data = {"CDS": cds_data, "TRSC": trsc_data}
+        trsc_data = Data(self.GE_TRSC, self.CF, self.gene_info, name = f"{self.COHORT}_TRSC") 
+        
+        self.data = {"CDS": cds_data, "TRSC": trsc_data, }
 
 
     def dump_infos(self, outpath):

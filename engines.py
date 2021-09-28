@@ -29,6 +29,7 @@ class Engine:
         self.EMB_FILE = params.EMB_FILE
         self.NREP_OPTIM = params.NREP_OPTIM
         self.NEPOCHS = params.NEPOCHS
+        self.N_PCs = params.N_PCs
         # HARDCODE
         self.NFOLDS = 5
         self.INT_NFOLDS = 5
@@ -68,15 +69,15 @@ class Engine:
     def run_benchmarks(self):
         # fix cohort and width
         cohort = "pronostic"
-        # width
-        width = "CDS"
         # init results
         res = []
         # set input 
         for input in self.BENCHMARKS:
             # set data
+            # width
+            width = "TRSC" if input.split("-")[1] == "LSC17" else "CDS"
             data = self.datasets[cohort].data[width]
-            data.set_input_targets(input = input.split("-")[1], filter = input.split("-")[0] == "CPH")
+            data.set_input_targets(input, embfile = self.EMB_FILE)
             data.shuffle()
             data.split_train_test(nfolds = self.NFOLDS) # 5 fold cross-val
             for foldn in tqdm(range(self.NFOLDS)):
@@ -87,12 +88,18 @@ class Engine:
                 train_data = data.folds[0].train
                 
                 # choose model type and launch HP optim
-                int_cv, opt_model = models.hpoptim(train_data, model_type = input.split("-")[0], n = self.NREP_OPTIM, nfolds = self.INT_NFOLDS, nepochs = self.NEPOCHS)
+                int_cv, opt_model = models.hpoptim(train_data, 
+                    model_type = input.split("-")[0], 
+                    n = self.NREP_OPTIM, 
+                    nfolds = self.INT_NFOLDS, 
+                    nepochs = self.NEPOCHS)
+                
                 # test
                 out, l, c = opt_model._test(test_data)
                 if "CPHDNN" in input: epochs = opt_model.params["epochs"]
                 else: epochs = -999
                 res.append([foldn, input, self.NREP_OPTIM, self.NFOLDS, self.INT_NFOLDS, epochs,c])
+                print([foldn, input, self.NREP_OPTIM, self.NFOLDS, self.INT_NFOLDS, epochs,c])
             int_cv.to_csv(f"{self.OUTPATHS['RES']}/{input}_intcv_benchmark.csv")
             # inference
             # out = model.forward(test_data.x)
