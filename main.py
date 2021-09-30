@@ -1,22 +1,15 @@
 # custom
-import utils 
-from engines import Engine
+import experiments.experiments_Cox_1 as CoxExp
+import parser
 # base
 import pdb
 from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore', '.*do not.*', )
+
 def main():
-    start = datetime.now()
-    args = utils.parse_arguments()
-    eng = Engine(
-        params = args, 
-        )
-    eng.run_visualisations() 
-    end = datetime.now()
-    print(f"DONE\t{end-start} s") 
-    eng.run_benchmarks()    
-    if args.debug : pdb.set_trace()
-    
+    args = parser.parse_arguments()
+    coxExp.run_experiment_1(args)
+    coxExp.run_experiment_2(args) 
 if __name__ == "__main__":
     main()

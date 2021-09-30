@@ -1,6 +1,7 @@
 # custom
 from re import I
-from datasets import Leucegene_Dataset
+from experiments.engines.datasets.datasets import Leucegene_Dataset
+import models
 # base
 from datetime import datetime
 import utils 
@@ -8,8 +9,8 @@ import functions
 import pandas as pd
 import pdb 
 import numpy as np
-import models
 from tqdm import tqdm 
+import os 
 
 class Engine:
     def __init__(self, params):
@@ -37,7 +38,7 @@ class Engine:
         self._load_datasets()
         # HARDCODE
         self.OUTPATHS = {   # dict
-            "RES": utils.assert_mkdir(f"RES{datetime.now()}"),
+            "RES": os.path.join("RES") #utils.assert_mkdir(f"RES{datetime.now()}"))
         }
     def _init_CF_files(self):
         infos = pd.read_csv("Data/lgn_ALL_CF", sep = "\t").T
