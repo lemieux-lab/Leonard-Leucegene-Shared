@@ -14,7 +14,7 @@ def parse_arguments():
     parser.add_argument("-B", dest = "BENCHMARKS", type = str, nargs = "+", default = ["CPH-PCA"], help= "list of benchmarked models for survival prediction")
     parser.add_argument("-N", dest = "NREP_OPTIM", default = 1, type = int, help = "number of optimizations for Hyper parameters")
     parser.add_argument("-E", dest = "NEPOCHS", default = 1, type = int, help = "number of epochs for optim of DNN models")
-    parser.add_argument("-N_PCs", dest = "N_PCs", default = [25], type = int, nargs = "+", help = "number of principal components to test in models, sequentially")
+    parser.add_argument("-N_PCs", dest = "N_PCs", default = [25,26], type = int, nargs = "+", help = "range (min, max) of n principal components to test in models, sequentially")
     
     # TRUE FALSE control parameters
     parser.add_argument("-PCA", dest = "PCA", action="store_true")

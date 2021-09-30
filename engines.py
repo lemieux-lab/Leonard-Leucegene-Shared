@@ -70,7 +70,7 @@ class Engine:
         # fix cohort and width
         cohort = "pronostic"
         # init results
-        res = []
+        tst_res = []
         # set input 
         for input in self.BENCHMARKS:
             # set data
@@ -78,8 +78,10 @@ class Engine:
             width = "TRSC" if input.split("-")[1] == "LSC17" else "CDS"
             data = self.datasets[cohort].data[width]
             data.set_input_targets(input, embfile = self.EMB_FILE)
-            data.shuffle()
+            data.shuffle() # IMPORTANT
             data.split_train_test(nfolds = self.NFOLDS) # 5 fold cross-val
+            scores = [] # store risk prediction scores for agg_c_index calc
+            tr_res = [] # a data frame containing training optimzation results
             for foldn in tqdm(range(self.NFOLDS)):
                 print(f"foldN: {foldn + 1}")
                 #pdb.set_trace()
@@ -92,23 +94,28 @@ class Engine:
                     model_type = input.split("-")[0], 
                     n = self.NREP_OPTIM, 
                     nfolds = self.INT_NFOLDS, 
-                    nepochs = self.NEPOCHS)
+                    nepochs = self.NEPOCHS,
+                    input_size_range = self.N_PCs)
                 
                 # test
                 out, l, c = opt_model._test(test_data)
+                scores.append(out)
                 if "CPHDNN" in input: epochs = opt_model.params["epochs"]
                 else: epochs = -999
-                res.append([foldn, input, self.NREP_OPTIM, self.NFOLDS, self.INT_NFOLDS, epochs,c])
-                print([foldn, input, self.NREP_OPTIM, self.NFOLDS, self.INT_NFOLDS, epochs,c])
-            int_cv.to_csv(f"{self.OUTPATHS['RES']}/{input}_intcv_benchmark.csv")
-            # inference
-            # out = model.forward(test_data.x)
-            # c_index = utils.concordance_index(out, test_data.y["t"], test_data.y["e"])
-            # res.append([input, 1, 5, 10, 500, c_index])
+                int_cv["foldn"] = foldn + 1 
+                tr_res.append(int_cv)
+                tr_res_df = pd.concat(tr_res)
+                tr_res_df.to_csv(f"{self.OUTPATHS['RES']}/{input}_intcv_benchmark.csv")
+                
+                tst_res.append([input, foldn + 1, opt_model.params["wd"], opt_model.params["input_size"],c])
+                print(tst_res[-1])
+            # compute agg_c_index
+            tst_agg_c = functions.compute_aggregated_c_index(scores, data)
+            tst_res = pd.DataFrame(tst_res, columns = ["model_type","foldn", "wd", "nIN_PCs", "fold_c_ind"])
+            tst_res["tst_agg_c_ind"] = tst_agg_c
+            tst_res.to_csv(f"{self.OUTPATHS['RES']}/{input}_test_results.csv")
+            pdb.set_trace()
 
-        res = pd.DataFrame(res, columns = ["foldn", "model_type","nrep_optim",  "external_cv","internal_cv", "n_epochs", "c_index"])
-        res.to_csv(f"{self.OUTPATHS['RES']}/run_benchmarks.csv")
-        print(res) 
     def run_visualisations(self):
         for cohort in self.COHORTS:
             for width in self.WIDTHS: 
@@ -167,3 +174,9 @@ class Engine:
                     width, 
                     self.OUTPATHS["RES"])
 
+    def run_fact_emb(self):
+        # load Gene Expression data
+        # run Fact_emb
+        # save embedding 
+        # plot embedding
+        pass

@@ -18,11 +18,15 @@ class CPH():
         self.data = data
         self.params = DefaultDict()
 
-    def set_random_params(self):
+    def set_random_params(self, input_size = None):
         # weight decay or L2
         self.params["wd"] = np.power(10, np.random.uniform(-10,-9))
+        input_size = min(np.random.randint(2, self.data.folds[0].train.x.shape[1]), 50)
         # set number of input PCs
-        self.params["input_size"] = min(np.random.randint(2, self.data.folds[0].train.x.shape[1]), 50)
+        self.params["input_size"] = input_size
+    
+    def set_fixed_params(self, params):
+        self.params = params
     
     def _train(self):
         # create lifelines dataset
@@ -43,7 +47,7 @@ class CPH():
         self.model = CPH.fit(ds, duration_col = "T", event_col = "E")
         l = self.model.log_likelihood_
         c = self.model.concordance_index_
-    
+        return c
     def _valid_cv(self, fold_index):
         test_data = self.data.folds[fold_index].test
         test_features = test_data.x
@@ -255,7 +259,9 @@ class CPHDNN(nn.Module):
         stack = stack[:-1]# remove last non linearity !!
         self.stack = nn.Sequential(OrderedDict(stack)).to(self.params["device"])
         
-
+class Factorized_Embedding():
+    def __init__(self) -> None:
+        pass
 
 def train_test(data, model_type, input):
     # define data
@@ -274,7 +280,7 @@ def train_test(data, model_type, input):
     pdb.set_trace()
 
 model_picker = {"CPH": CPH, "CPHDNN": CPHDNN}
-def hpoptim(data, model_type, n = 100, nfolds = 5, nepochs = 1):
+def hpoptim(data, model_type, n = 100, nfolds = 5, nepochs = 1, input_size_range = None):
     
     # choose correct model, init
     model = model_picker[model_type](data, nepochs = nepochs)
@@ -284,48 +290,53 @@ def hpoptim(data, model_type, n = 100, nfolds = 5, nepochs = 1):
     res = []
     best_params = None
     best_c_index = 0
+    rep_params_list = functions.set_params_list(n, input_size_range)
+    models = []
     # for each replicate (100)
-    for rep_n in range(n):
+    for rep_n, params in enumerate(rep_params_list):
         
         # fix (choose at random) set of params
-        model.set_random_params()        
-        c_index = []
-
+        model.set_fixed_params(params)
+        tr_c_index = []
+        scores = []
         # cycle through folds
         for fold_n in tqdm(range (nfolds), desc = f"{model_type} - N{rep_n + 1} - Internal Cross Val"):
                 
             # train
-            model._train_cv(fold_n)
+            tr_c = model._train_cv(fold_n)
             # test 
             out,l,c = model._valid_cv(fold_n)
+            scores.append(out)
             # record accuracy
-            c_index.append(c)
-        score = np.mean(c_index)
-        if score > best_c_index:
-            best_c_index = score
+            tr_c_index.append(tr_c)
+        c_ind_agg = functions.compute_aggregated_c_index(scores, model.data)
+        c_ind_tr = np.mean(tr_c_index)
+        if c_ind_agg > best_c_index:
+            best_c_index = c_ind_agg
             best_params = model.params
         # compute aggregated c_index
         # print(model.params, round(score, 3))
         if model_type == "CPHDNN":
-            res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size", "D","W"]], [round(np.mean(c_index ),3)]] ))
+            res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size", "D","W"]], [c_ind_tr, c_ind_agg]] ))
         elif model_type == "CPH":
-           res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size"]], [round(np.mean(c_index ),3)]] )) 
+           res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size"]], [c_ind_tr, c_ind_agg]] )) 
         # for each fold (5)
             # train epochs (400)
             # test
         # record agg score, params
         
     if model_type == "CPHDNN":
-        res = pd.DataFrame(res, columns = ["wd", "nIN", "D", "W", "c_index"] )
+        res = pd.DataFrame(res, columns = ["wd", "nIN", "D", "W", "c_index_train", "c_index_vld"] )
     elif model_type == "CPH":
-        res = pd.DataFrame(res, columns = ["wd", "nIN", "c_index"] ) 
-    res = res.sort_values(["c_index"], ascending = False)
+        res = pd.DataFrame(res, columns = ["wd", "nIN", "c_index_train", "c_index_vld"] ) 
+    res = res.sort_values(["c_index_vld"], ascending = False)
     # RERUN model with best HPs
     opt_model = model_picker[model_type](data)
     opt_model.set_fixed_params(best_params)
     opt_model._train()
     # return model
     return res, opt_model
+
 
 def main():
     # some test funcs

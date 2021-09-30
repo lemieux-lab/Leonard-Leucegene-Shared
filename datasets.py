@@ -138,7 +138,7 @@ class Data:
 
 
 class Leucegene_Dataset():
-    def __init__(self, cohort, embedding_file) -> None:
+    def __init__(self, cohort, embedding_file = None) -> None:
         self.COHORT = cohort
         print(f"Loading ClinF {self.COHORT} file ...")
         self.CF_file = f"Data/lgn_{self.COHORT}_CF"

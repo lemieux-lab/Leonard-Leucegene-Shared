@@ -12,6 +12,23 @@ import itertools as it
 import pandas as pd
 from obo.read import read_obo 
 
+def set_params_list(nrep, input_size_range):
+    wdmax = -1
+    wdmin = -10
+    step = float(abs(wdmax - wdmin)) / nrep
+    wds = np.power(10, np.arange(wdmin, wdmax,step)) 
+    inp_size = np.arange(input_size_range[0], input_size_range[1])
+    params_list = [{"wd": wd, "input_size": ins} for wd in wds for ins in inp_size]
+    return params_list
+
+def compute_aggregated_c_index(scores, data):
+    #scores_df = pd.concat([pd.DataFrame(s) for s in scores])
+    
+    test_set = pd.concat([d.test.y for d in data.folds])
+    aggr = [test_set.merge(pd.DataFrame(s), left_index = True, right_index = True) for s in scores]
+    aggr_df = pd.concat(aggr)
+    aggr_c_ind = compute_c_index(aggr_df["t"], aggr_df["e"], aggr_df[0])
+    return aggr_c_ind
 
 def compute_c_index(T,E, partial_hazards):
     c_index = lifelines.utils.concordance_index(T, partial_hazards,E)
