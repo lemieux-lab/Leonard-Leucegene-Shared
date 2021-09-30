@@ -7,6 +7,7 @@ import lifelines
 import numpy as np
 import pandas as pd
 from tqdm import tqdm 
+import umap
 # base
 import os
 import pdb
@@ -15,7 +16,54 @@ import itertools as it
 import engines.models.utils as utils 
 from engines.models.obo.read import read_obo 
 
+proj_picker = {"TSNE": TSNE, "UMAP":umap.UMAP}
+def plot_factorized_embedding(ds, embedding, MSEloss, emb_size, e, cohort = "public", method = "UMAP"):
+    # manage colors 
+    #colors = ["b", "g", "c", "y", "k","lightgreen", "darkgrey", "darkviolet"]
+    r = lambda: np.random.randint(0,255)
+    flatui = []
+    for i in range(53):
+        flatui.append('#%02X%02X%02X' % (r(),r(),r()))
 
+    # plot cyto group
+    markers = ['<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X']*5
+    np.random.shuffle(markers)
+    # fix label
+    feature = "Cytogenetic group"
+    #perplexity = 30
+    #data_folder = "/u/sauves/FactorizedEmbedding/run_LS_emb17/50934a761eefc71f19f324b1953fc056/"
+    print(f"Epoch {e} - Plotting with {method} ...")
+    
+    #tsne = TSNE(n_components = 2, perplexity= perplexity, verbose =1, init = "pca")
+    #proj_x = tsne.fit_transform(data)
+    reducer = proj_picker[method]()
+    proj_x = reducer.fit_transform(embedding)
+    fig = plt.figure(figsize = (20,10))
+    pdb.set_trace()
+    for i, cyto_group in enumerate(np.unique(ds.y[feature])):
+        plt.grid(color = 'grey', linestyle = '--', linewidth = 0.5)     
+        X = proj_x[ds.y[feature] == cyto_group][:,0]
+        Y = proj_x[ds.y[feature] == cyto_group][:,1]
+        c = flatui[i%len(flatui)]
+        m = markers[i%len(markers)]
+            
+        plt.scatter(X, Y, label = cyto_group[:50] + "...", color = c , marker = m)
+    caption = f"Leucegene {cohort} - {emb_size}-D Embedding - Epoch {e} - by {feature} - Factorized Embedding {method} -\n From CDS - With {ds.x.shape[0]} Samples and {ds.x.shape[1]} features"
+    plt.title(caption)
+    plt.xlabel(f"{method}- EMBEDDING")
+    plt.ylabel(f"{method} - EMBEDDING")
+    MIN = np.array(proj_x).flatten().min() - 1
+    MAX = np.array(proj_x).flatten().max() + 1
+    plt.xlim([MIN,MAX])
+    plt.ylim([MIN,MAX])
+    plt.box(False)
+    plt.legend(bbox_to_anchor=(-0.5, 1.0), loc='upper left')
+    plt.gca().set_aspect('equal')
+    fname = f"RES/FIGS/proj_by_epoch_FE/embedding{emb_size}_{method}_epoch_{e}"
+    plt.savefig(f"{fname}.svg")
+    plt.savefig(f"{fname}.png")
+    plt.savefig(f"{fname}.pdf")
+    
 def set_params_list(nrep, input_size_range):
     wdmax = -1
     wdmin = -10
