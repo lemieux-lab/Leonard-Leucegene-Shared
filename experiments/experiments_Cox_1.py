@@ -1,12 +1,11 @@
-import models.utils as u
-import experiments.engines.base_engines as eng
+import engines.base_engines as eng
+
 # base 
-import datetime
+from datetime import datetime
 import pdb 
 
 def run_experiment_1(args):
     start = datetime.now()
-    args = u.parse_arguments()
     E = eng.Engine(
         params = args, 
     )
@@ -16,5 +15,8 @@ def run_experiment_1(args):
     if args.debug : pdb.set_trace()
 
 def run_experiment_2(args):
-    eng.run_benchmarks()    
+    E = eng.Engine(
+        params = args, 
+    )
+    E.run_benchmarks()    
     if args.debug : pdb.set_trace()
