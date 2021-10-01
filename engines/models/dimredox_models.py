@@ -1,6 +1,10 @@
-from torch import nn
 import torch
 import torch.nn.functional as F
+from torch import nn
+import numpy as np
+from torch.autograd import Variable
+from sklearn.decomposition import PCA
+
 class FactorizedMLP(nn.Module):
 
     def __init__(self, layers_size, inputs_size, rang, minimum, emb_size=2, data_dir = 'data/', set_gene_emb = '.', warm_pca = '.'):
@@ -59,7 +63,7 @@ class FactorizedMLP(nn.Module):
 
         for layer in self.mlp_layers:
             mlp_input = layer(mlp_input)
-            mlp_input = F.relu(mlp_input)
+            mlp_input = nn.functional.relu(mlp_input)
 
         mlp_output = self.last_layer(mlp_input)
 

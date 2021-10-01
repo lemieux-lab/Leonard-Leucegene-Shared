@@ -160,12 +160,13 @@ class Leucegene_Dataset():
         self._GE_CDS_TPM = self._GE_TPM.merge(self.gene_info[self.gene_info["gene_biotype_y"] == "protein_coding"], left_index = True, right_on = "featureID_y")
         # clean up
         self._GE_CDS_TPM.index = self._GE_CDS_TPM.SYMBOL
-        self.GE_CDS = np.log(self._GE_CDS_TPM.iloc[:,:-self.gene_info.shape[1]] + 1).T
-        self.GE_TRSC = np.log(self._GE_TPM + 1).T
+        self._GE_CDS_TPM = (self._GE_CDS_TPM.iloc[:,:-self.gene_info.shape[1]]).T
+        self.GE_CDS_LOG = np.log(self._GE_CDS_TPM + 1)
+        self.GE_TRSC_LOG = np.log(self._GE_TPM.T + 1)
         # set CDS data
-        cds_data = Data(self.GE_CDS, self.CF, self.gene_info, name = f"{self.COHORT}_CDS")
+        cds_data = Data(self.GE_CDS_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_CDS")
         # set TRSC data
-        trsc_data = Data(self.GE_TRSC, self.CF, self.gene_info, name = f"{self.COHORT}_TRSC") 
+        trsc_data = Data(self.GE_TRSC_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_TRSC") 
         
         self.data = {"CDS": cds_data, "TRSC": trsc_data, }
 

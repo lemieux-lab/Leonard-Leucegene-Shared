@@ -5,7 +5,7 @@ import warnings
 warnings.filterwarnings('ignore', '.*do not.*', )
 
 import experiments.parsers as parsers
-Cox_args = parsers.parse_Cox_arguments()
+#Cox_args = parsers.parse_Cox_arguments()
 FE_args = parsers.parse_FE_arguments()
 
 def main():

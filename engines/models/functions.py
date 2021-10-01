@@ -39,7 +39,6 @@ def plot_factorized_embedding(ds, embedding, MSEloss, emb_size, e, cohort = "pub
     reducer = proj_picker[method]()
     proj_x = reducer.fit_transform(embedding)
     fig = plt.figure(figsize = (20,10))
-    pdb.set_trace()
     for i, cyto_group in enumerate(np.unique(ds.y[feature])):
         plt.grid(color = 'grey', linestyle = '--', linewidth = 0.5)     
         X = proj_x[ds.y[feature] == cyto_group][:,0]
