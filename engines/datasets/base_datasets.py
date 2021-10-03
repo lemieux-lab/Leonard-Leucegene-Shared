@@ -56,7 +56,7 @@ class Data:
         return {"proj_x":self._xpca, "pca":self._pca }
     def LSC17(self):
         
-        lsc17 = pd.read_csv("SIGNATURES/LSC17_expressions.csv", index_col = 0)
+        lsc17 = pd.read_csv("Data/SIGNATURES/LSC17_expressions.csv", index_col = 0)
         #LSC17_expressions = self.x[self.x.columns[self.x.columns.isin(lsc17.merge(self.gene_info, left_on = "ensmbl_id_version", right_on = "featureID_x").featureID_y)]]
         return lsc17
 
@@ -76,15 +76,19 @@ class Data:
                 self.x = self._xpca
 
         elif self.data_type == "FE":
-            self.fetch_embedding(embfile)
-            self.x = self._xemb
-            # shuffle cols
-            self.x = self.x[np.random.permutation(self.x.columns)]
+            print("Fetching embedding file...")
+            if embfile.split(".")[-1] == "npy":
+                emb_x = np.load(embfile)
+                self._xemb = emb_x
+            elif embfile.split(".")[-1] == "csv":
+                emb_x = pd.read_csv(embfile, index_col=0)
+                self._xemb = emb_x[emb_x.index.isin(self.y.index)]
+            self.x = pd.DataFrame(self._xemb, index = self.x.index)
             # evaluate variance in cols, drop low variance ones
-            if self.model_type == "CPH":
-                nrem  = (self.x.var(0) < 0.001).sum()
-                self.x = self.x.T[(self.x.var(0) > 0.001)].T
-                print(f"Removed {nrem} columns with low variance")
+            #if self.model_type == "CPH":
+            #    nrem  = (self.x.var(0) < 0.001).sum()
+            #    self.x = self.x.T[(self.x.var(0) > 0.001)].T
+            #    print(f"Removed {nrem} columns with low variance")
             
         elif self.data_type == "clinf":
             self.x = self.y[np.setdiff1d(self.y.columns, ["Overall_Survival_Time_days", "Overall_Survival_Status"])] # do smthing
@@ -99,13 +103,6 @@ class Data:
     def shuffle(self):
         self.x = self.x.sample(frac = 1)
         self._reindex_targets()
-
-    def fetch_embedding(self, embfilepath):
-        print("Fetching embedding file...")
-        emb_x = pd.read_csv(embfilepath, index_col=0)
-        self._xemb = emb_x[emb_x.index.isin(self.y.index)]
-        
-
         
     def split_train_test(self, nfolds):
         if "cuda" in self.device: return # do nothing if dataset is already split! 

@@ -116,13 +116,11 @@ class Engine:
                 tr_res_df.to_csv(f"{self.OUTPATHS['RES']}/{input}_intcv_benchmark.csv")
                 
                 tst_res.append([input, foldn + 1, opt_model.params["wd"], opt_model.params["input_size"],c])
-                print(tst_res[-1])
             # compute agg_c_index
             tst_agg_c = functions.compute_aggregated_c_index(scores, data)
             tst_res = pd.DataFrame(tst_res, columns = ["model_type","foldn", "wd", "nIN_PCs", "fold_c_ind"])
             tst_res["tst_agg_c_ind"] = tst_agg_c
             tst_res.to_csv(f"{self.OUTPATHS['RES']}/{input}_test_results.csv")
-            pdb.set_trace()
 
     def run_visualisations(self):
         for cohort in self.COHORTS:
