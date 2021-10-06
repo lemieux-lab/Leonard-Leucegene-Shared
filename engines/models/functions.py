@@ -62,19 +62,10 @@ def plot_factorized_embedding(ds, embedding, MSEloss, emb_size, e, cohort = "pub
     plt.savefig(f"{fname}.svg")
     plt.savefig(f"{fname}.png")
     plt.savefig(f"{fname}.pdf")
-    
-def set_params_list(nrep, input_size_range):
-    wdmax = -1
-    wdmin = -10
-    step = float(abs(wdmax - wdmin)) / nrep
-    wds = np.power(10, np.arange(wdmin, wdmax,step)) 
-    inp_size = np.arange(input_size_range[0], input_size_range[1])
-    params_list = [{"wd": wd, "input_size": ins} for wd in wds for ins in inp_size]
-    return params_list
+
 
 def compute_aggregated_c_index(scores, data):
     #scores_df = pd.concat([pd.DataFrame(s) for s in scores])
-    
     test_set = pd.concat([d.test.y for d in data.folds])
     aggr = [test_set.merge(pd.DataFrame(s), left_index = True, right_index = True) for s in scores]
     aggr_df = pd.concat(aggr)

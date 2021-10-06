@@ -156,19 +156,41 @@ pending...
 
 ## 3. Predicting Survival using Cox-PH and Derivates
 
-### 3.1 Different models are trained sequentially to predict survival
+## 3.1 Banchmarking
+With this system we are training different models to predict survival and comparing their performance.
+
+### 3.1.1 *Usage*
+To specify which models to test, we enter the model types after the -B flag separated by spaces. The model types must be specified following the structure <model>-<input>, where the model is either a *Cox-Proportional Hazard, CPH-Deep neural netowrk*.  The input must be chosen between *LSC17, PCA or FE*. 
+
+Note: When the CPH model type is used, by default the system will compute a CPHDNN1 network in parallel as well. This is to verify that our implementation of the CPH is able to compare to the *lifelines* implemetation that we use as baseline. 
 
 ```
 python3 main.py -B FIXED_EMB <embedding_file>
 name: BENCHMARKS
-default: "CPH-PCA"
-values: ["CPH-PCA", "CPHDNN-PCA", "CPHDNN-FE"]
+default: "CPH-PCA", "CoxSGD-PCA"
+values: ["CPH-PCA", "CPH-LSC17", "CPH-FE", "CPHDNN-LSC17", "CPHDNN-PCA", "CPHDNN-FE", "CoxSGD-LSC17", "CoxSGD-PCA", "CoxSGD-FE"]
 ```
 * CPH-PCA : Trains & test PCA + CPH model
 * CPHDNN-PCA : Trains and test PCA + CPH-deep-neural-network model
 * CPHDNN-FE : Trains & test  CPH-deep-neural-network model with a Factorized Embedding (fixed) as input.
 
-#### training phase
+#### 3.1.2 Double cross-validation (CV) system.
+**Main Cross-validation:** In the current system, data is split into n folds, where n is set to 5 by default, so that every recorded performance is computed using a separate test sample, which has never been seen by the trained model. The goal of this system is to provide the least biased estimation possible of each of the data-model combinations accuracy on predicting risk on unseen data.
+
+**Internal Cross-validation:** or ***Hyper-parameters optimisation*** of the model-data couplings. Whithin the training procedure for each model-data coupling, internal cross-validation searches for the optimal hyper-parameters that the main CV will evaluate. The model returned is the model that minimizes errors on its internal validation set, and this procedure is repeated across the whole training set. The number of optimisation steps for hyper-parameters is set with the -NOPT flag, set to 1 by default, then the number of internal cross-validation folds used for each step is set by the flag -INT_NFOLDS. 
+
+The influence of these parameters NFOLDS, INT_NFOLDS is yet under study, but we hypothesize that they should not influence results greatly, but rather should reduce variane between technical replicates. On the other hand, putting high numbers of folds in each CV will increase computing time drastically. We suggest starting with low numbers of internal and main cross-val number to get rough estimates, and to increase this number to N (number of samples) afterwards as results get more and more stable.
+
+***Rationale:*** We use cross-validation to search HP space because, by splitting the training set, we run the chance of under or over-perform on the validation set, just due to the randomness of the data-splitting action. This action may induce to have a large proportion of censored data, which is very uninfromative when testing a model. For an accurate estimate of the generalization power of each HP set tested, we choose to undergo full cross-validation, so that the recorded and compared accuracy represents the whole training set. The caveat of this method is that it pushes the system to choose a HP set that overfits the training set, which can lead to overfitting on the test set. 
+
+```
+python main.py -B <model1>-<input1> <model2>-<input1>, etc... -NFOLDS 5
+name: NFOLDS, default: 5
+name: INT_NFOLDs, default: 5
+name: NOPT, default: 1
+```
+
+#### 3.1.3 training phase
 * data is loaded, then a test set (10%) is reserved, rest is used to train models.
 * training data is loaded into model, split into 5 folds 
 * Internal cross-validation is performed 100 times and best HPs are stored.
@@ -176,45 +198,15 @@ values: ["CPH-PCA", "CPHDNN-PCA", "CPHDNN-FE"]
 * Optimized trained model is returned and ready to be tested on test set.
 * repeat 10 times to get full cross-validated performance across cohort.
 
+### 3.2.1
 
-### 3.2 Simultaneous training of Fact-EMB-CPHDNN
+### 3.3 Simultaneous training of Fact-EMB-CPHDNN
 ```
 python3 main.py -B CPHDNN-FE 
 ```
 * Trains & test Factorized Embedding + CPHDNN model: *currently in progress*
 
-## 4. Discussion
 
 ## 5. Figures 
 
 ### 5.1 Benchmarks from 01-09-2021
-![Figure 1.1](FIGS/benchmarks.svg)
-### 5.2 Leucegene *public* comparing selected features
-[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic%20risk.svg)
-![Figure 1.1](FIGS/lgn_public_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
-
-[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_WHO%20classification.svg)
-![Figure 1.2](FIGS/lgn_public_GE_TSNE_CDS_TPM_WHO_classification.svg)
-
-[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_Tissue.svg)
-![Figure 1.3](FIGS/lgn_public_GE_TSNE_CDS_TPM_Tissue.svg)
-
-[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_Sex.svg)
-![Figure 1.4](FIGS/lgn_public_GE_TSNE_CDS_TPM_Sex.svg)
-
-[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_RNASEQ_protocol.svg)
-![Figure 1.5](FIGS/lgn_public_GE_TSNE_CDS_TPM_RNASEQ_protocol.svg)
-
-[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_NPM1%20mutation.svg)
-![Figure 1.6](FIGS/lgn_public_GE_TSNE_CDS_TPM_NPM1_mutation.svg)
-
-[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/public/CDS/lgn_public_GE_TSNE_CDS_TPM_FLT3-ITD%20mutation.svg)
-![Figure 1.7](FIGS/lgn_public_GE_TSNE_CDS_TPM_FLT3-ITD_mutation.svg)
-
-#### 5.2 Leucegene *pronostic* comparing selected features
-
-[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/pronostic/CDS/lgn_pronostic_GE_TSNE_CDS_TPM_Cytogenetic%20risk.svg)
-![Figure 2.1](FIGS/lgn_pronostic_GE_TSNE_CDS_TPM_Cytogenetic_risk.svg)
-
-[figure](https://bioinfo.iric.ca/~sauves/LEUCEGENE/RES2021/RES2021083116:06:23.670204/pronostic/CDS/lgn_pronostic_GE_TSNE_CDS_TPM_WHO%20classification.svg)
-![Figure 2.2](FIGS/lgn_pronostic_GE_TSNE_CDS_TPM_WHO_classification.svg)

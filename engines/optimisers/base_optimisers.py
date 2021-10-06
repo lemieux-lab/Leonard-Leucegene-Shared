@@ -1,10 +1,12 @@
-from engines.models.cox_models import CPH, CPHDNN
+from engines.models.cox_models import CPH, CPHDNN, CoxSGD
 import engines.models.functions as functions 
+from collections import defaultdict
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import pdb
-model_picker = {"CPH": CPH, "CPHDNN": CPHDNN}
+
+model_picker = {"CPH": CPH, "CPHDNN": CPHDNN, "CoxSGD": CoxSGD}
 class HPOptimiser:
     def __init__(self, train_data, 
                     model_type = "CPH", 
@@ -31,10 +33,10 @@ class HPOptimiser:
         res = []
         best_params = None
         best_c_index = 0
-        rep_params_list = functions.set_params_list(self.n, self.pca_input_size_range)
+        hpsearch = HPSearch(self.model_type, self.n, nepochs = self.nepochs)
         models = []
         # for each replicate (100)
-        for rep_n, params in enumerate(rep_params_list):
+        for rep_n, params in enumerate(hpsearch.params_list):
             
             # fix (choose at random) set of params
             model.set_fixed_params(params)
@@ -50,26 +52,14 @@ class HPOptimiser:
                 scores.append(out)
                 # record accuracy
                 tr_c_index.append(tr_c)
+
             c_ind_agg = functions.compute_aggregated_c_index(scores, model.data)
             c_ind_tr = np.mean(tr_c_index)
             if c_ind_agg > best_c_index:
                 best_c_index = c_ind_agg
                 best_params = model.params
-            # compute aggregated c_index
-            # print(model.params, round(score, 3))
-            if self.model_type == "CPHDNN":
-                res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size", "D","W"]], [c_ind_tr, c_ind_agg]] ))
-            elif self.model_type == "CPH":
-                res.append(np.concatenate([[model.params[key] for key in ["wd", "input_size"]], [c_ind_tr, c_ind_agg]] )) 
-            # for each fold (5)
-                # train epochs (400)
-                # test
-            # record agg score, params
-            
-        if self.model_type == "CPHDNN":
-            res = pd.DataFrame(res, columns = ["wd", "nIN", "D", "W", "c_index_train", "c_index_vld"] )
-        elif self.model_type == "CPH":
-            res = pd.DataFrame(res, columns = ["wd", "nIN", "c_index_train", "c_index_vld"] ) 
+            res.append([rep_n, c_ind_tr, c_ind_agg])
+        res = pd.DataFrame(res, columns = ["repn", "c_ind_tr", "c_index_vld"])
         res = res.sort_values(["c_index_vld"], ascending = False)
         # RERUN model with best HPs
         opt_model = model_picker[self.model_type](self.data)
@@ -77,3 +67,36 @@ class HPOptimiser:
         opt_model._train()
         # return model
         return res, opt_model
+
+
+class HPSearch:
+    def __init__(self, model_type, nrep, nepochs = 100) -> None:
+        self.nrep = nrep
+        self.model_type = model_type
+        self.lr = 1e-3 # fixed 
+        self.nepochs = nepochs
+        self.params_list_generators = {"CPH": self.set_params_list_cph,
+         "CoxSGD": self.set_params_list_coxsgd}
+        self.params_list = self.params_list_generators[self.model_type]()
+        
+    
+    def set_params_list_coxsgd(self):
+        params_list = []
+        for i in range(self.nrep):
+            params = defaultdict()
+            params["wd"] = np.power(10, np.random.uniform(-10, -9)) # sample WD  
+            params["lr"] = self.lr
+            params["epochs"] = self.nepochs 
+            params["opt_nepochs"] = 500 # fixed
+            params_list.append(params)
+        return params_list 
+
+    def set_params_list_cph(self, input_size_range = 17):
+        params_list = []
+        for i in range(self.nrep):
+            params = defaultdict()
+            params["wd"] = np.power(10, np.random.uniform(-10, -9)) # sample WD  
+            params["input_size"] = input_size_range
+            params_list.append(params)
+        return params_list 
+    

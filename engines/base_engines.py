@@ -4,6 +4,7 @@ from engines.datasets.base_datasets import Leucegene_Dataset
 import engines.datasets.FE_datasets as FE_Datasets
 import engines.models.functions as functions 
 import engines.models.dimredox_models as models
+from engines.optimisers.base_optimisers import HPOptimiser
 # base
 from torch.autograd import Variable
 from datetime import datetime
@@ -76,27 +77,27 @@ class Engine:
         cohort = "pronostic"
         # init results
         tst_res = []
+        agg_c_index = []
+        width = "TRSC" 
+        data = self.datasets[cohort].data[width]
+        
+        data.shuffle() # IMPORTANT
+        data.split_train_test(nfolds = self.NFOLDS) # 5 fold cross-val 
         # set input 
         for input in self.BENCHMARKS:
             # set data
-            # width
-            width = "TRSC" if input.split("-")[1] == "LSC17" else "CDS"
-            data = self.datasets[cohort].data[width]
-            data.set_input_targets(input, embfile = self.EMB_FILE)
-            data.shuffle() # IMPORTANT
-            data.split_train_test(nfolds = self.NFOLDS) # 5 fold cross-val
+            # width    
             scores = [] # store risk prediction scores for agg_c_index calc
             tr_res = [] # a data frame containing training optimzation results
-            for foldn in tqdm(range(self.NFOLDS)):
+            for foldn in tqdm(range(self.NFOLDS), desc = f"{input}"):
                 print(f"foldN: {foldn + 1}")
                 #pdb.set_trace()
                 #data.to_DF() # reset data to cpu
                 test_data = data.folds[0].test
+                test_data.set_input_targets(input.split("-")[1], embfile = self.EMB_FILE)
                 train_data = data.folds[0].train
-                
+                train_data.set_input_targets(input.split("-")[1], embfile = self.EMB_FILE) 
                 # choose model type and launch HP optim
-                from engines.optimisers.base_optimisers import HPOptimiser
-                
                 hpopt = HPOptimiser(train_data, 
                     model_type = input.split("-")[0], 
                     n = self.NREP_OPTIM, 
@@ -116,12 +117,13 @@ class Engine:
                 tr_res_df.to_csv(f"{self.OUTPATHS['RES']}/{input}_intcv_benchmark.csv")
                 
                 tst_res.append([input, foldn + 1, opt_model.params["wd"], opt_model.params["input_size"],c])
-            # compute agg_c_index
             tst_agg_c = functions.compute_aggregated_c_index(scores, data)
-            tst_res = pd.DataFrame(tst_res, columns = ["model_type","foldn", "wd", "nIN_PCs", "fold_c_ind"])
-            tst_res["tst_agg_c_ind"] = tst_agg_c
-            tst_res.to_csv(f"{self.OUTPATHS['RES']}/{input}_test_results.csv")
-
+            agg_c_index.append(np.ones(5) * tst_agg_c)
+            # compute agg_c_index
+        tst_res = pd.DataFrame(tst_res, columns = ["model_type","foldn", "wd", "nIN_features", "fold_c_ind"])
+        tst_res["tst_agg_c_ind"] = np.concatenate(agg_c_index)
+        tst_res.to_csv(f"{self.OUTPATHS['RES']}/{input}_test_results.csv")
+        print(tst_res)
     def run_visualisations(self):
         for cohort in self.COHORTS:
             for width in self.WIDTHS: 

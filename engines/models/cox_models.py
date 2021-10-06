@@ -4,6 +4,10 @@ import numpy as np
 from lifelines import CoxPHFitter
 import engines.models.functions as functions 
 import pandas as pd
+import os
+import torch
+from tqdm import tqdm
+import pdb 
 # classes 
 class CPH():
     def __init__(self, data, nepochs = 1):
@@ -41,6 +45,7 @@ class CPH():
         l = self.model.log_likelihood_
         c = self.model.concordance_index_
         return c
+
     def _valid_cv(self, fold_index):
         test_data = self.data.folds[fold_index].test
         test_features = test_data.x
@@ -67,34 +72,141 @@ class CPH():
     def loss(self, out, T, E): 
         return 999 
 
-
-class CPHDNN(nn.Module):
-    def __init__(self, data, nepochs = 1):
-        super(CPHDNN, self).__init__()
+class CoxSGD(nn.Module):
+    def __init__(self, data, nepochs = 1) -> None:
+        super(CoxSGD, self).__init__()
         self.data = data
-        self.params = DefaultDict()
-        self.params["device"] = "cuda:0"
-        self.params["crossval_nfolds"] = 5
-        self.params["epochs"] = nepochs
-        self.params["opt_nepochs"] = 1000
-        self.params["lr"] = 1e-5
-        self.params["c_index_cross_val"] = 0
-        self.params["c_index_training"] = 0
+        self.loss_training = []
+        self.loss_valid = []
+        self.c_index_training = []
+        self.c_index_valid = []
+
+    def set_fixed_params(self, params):
+        self.params = params
+        self.params["input_size"] = self.data.x.shape[1]
+        self.init_model()
         self.params["machine"] = os.uname()[1]
         self.params["process_id"] = os.getpid() 
-        self.cols = ["process_id", "crossval_nfolds", "lr", "epochs","input_size","nInPCA",  "wd", "W", "D", "nL","c_index_training", "c_index_cross_val", "cpt_time"]    
-
         
+    
+    def init_model(self):
+        self.estimator = nn.Linear(self.params["input_size"], 1) # simple linear unit
+        self.optimizer = torch.optim.Adam(self.parameters(), lr = self.params["lr"], weight_decay = self.params["wd"])        
+ 
+    def forward(self,x):
+        risk = self.estimator(x)
+        return risk 
+    
+    def _train(self):
+        D =  self.data
+        Y = torch.Tensor(D.y.values)
+        X = torch.Tensor(D.x.values)
+        bs = 48
+        N = X.shape[0]
+        self.nbatch = int(np.ceil(N / bs))
+        for e in tqdm(range(self.params["opt_nepochs"]), desc="TRAINING FINAL MODEL"): 
+            n = 0
+            loss = 0
+            c_index = 0
+            for i in range(self.nbatch):
+                train_ids = np.arange(i * bs , (i + 1) * bs)
+                sorted_ids = torch.argsort(Y[train_ids,0], descending = True) 
+                train_features, train_T, train_E = X[sorted_ids], Y[sorted_ids,0], Y[sorted_ids,1] 
+                self.optimizer.zero_grad()
+                out = self.forward(train_features)
+                l = self.loss(out, train_T, train_E)
+                c = functions.compute_c_index(train_T.detach().numpy(), train_E.detach().numpy(), out.detach().numpy())
+                l.backward() 
+                self.optimizer.step()
+                loss += l
+                c_index += c
+                n += 1
+            self.loss_training.append(loss.item() / n)
+            self.c_index_training.append(c_index / n)
+        return c_index / n
+
+    def _test(self, test_data):
+        X = torch.Tensor(test_data.x.values)
+        Y = torch.Tensor(test_data.y.values)
+        test_t = Y[:,0]
+        test_e = Y[:,1]
+        out = self.forward(X)
+        l = self.loss(out, test_t, test_e)
+        c = functions.compute_c_index(test_t.detach().cpu().numpy(), test_e.detach().cpu().numpy(), out.detach().cpu().numpy())
+        out = pd.Series(out.detach().numpy().reshape(-1), index = test_data.x.index) 
+        return out, l, c
+
+    def _train_cv(self, foldn):
+        D =  self.data.folds[foldn].train
+        Y = torch.Tensor(D.y.values)
+        X = torch.Tensor(D.x.values)
+        bs = 24
+        N = X.shape[0]
+        self.nbatch = int(np.ceil(N / bs))
+        for e in range(self.params["epochs"]): # add timer 
+            n = 0
+            loss = 0
+            c_index = 0
+            for i in range(self.nbatch):
+                train_ids = np.arange(i * bs , (i + 1) * bs)
+                sorted_ids = torch.argsort(Y[train_ids,0], descending = True) 
+                train_features, train_T, train_E = X[sorted_ids], Y[sorted_ids,0], Y[sorted_ids,1] 
+                self.optimizer.zero_grad()
+                out = self.forward(train_features)
+                l = self.loss(out, train_T, train_E)
+                c = functions.compute_c_index(train_T.detach().numpy(), train_E.detach().numpy(), out.detach().numpy())
+                l.backward() 
+                self.optimizer.step()
+                loss += l
+                c_index += c
+                n += 1
+            self.loss_training.append(loss.item() / n)
+            self.c_index_training.append(c_index / n)
+        return c_index / n 
+
+    def _valid_cv(self, foldn):
+        # forward prop
+        # loss
+        # c_index
+        D = self.data.folds[foldn].test
+        X = torch.Tensor(D.x.values)
+        Y = torch.Tensor(D.y.values)
+        valid_t = Y[:,0]
+        valid_e = Y[:,1]
+        out = self.forward(X)
+        l = self.loss(out, valid_t, valid_e)
+        c = functions.compute_c_index(valid_t.detach().cpu().numpy(),valid_e.detach().cpu().numpy(), out.detach().cpu().numpy())
+        out = pd.Series(out.detach().numpy().reshape(-1), index = D.x.index)
+        return out, l , c
+
+    def loss(self, out, T, E): 
+        uncensored_likelihood = torch.zeros(E.size())# list of uncensored likelihoods
+        for x_i, E_i in enumerate(E): # cycle through samples
+            if E_i == 1: # if uncensored ...
+                log_risk = torch.log(torch.sum(torch.exp(out[:x_i +1])))
+                uncensored_likelihood[x_i] = out[x_i] - log_risk # sub sum of log risks to hazard, append to uncensored likelihoods list
+        
+        loss = - uncensored_likelihood.sum() / (E == 1).sum() 
+        return loss 
+
+class CPHDNN(nn.Module):
+    def __init__(self, data):
+        super(CPHDNN, self).__init__()
+        self.data = data        
         self.loss_training = []
         self.loss_valid = []
         self.c_index_training = []
         self.c_index_valid = []
     
+     
     def set_fixed_params(self, hp_dict):
 
         self.params = hp_dict
         self.setup_stack()
         self.optimizer = torch.optim.Adam(self.parameters(), lr = self.params["lr"], weight_decay = self.params["wd"])        
+        self.params["machine"] = os.uname()[1]
+        self.params["process_id"] = os.getpid() 
+
 
     def set_random_params(self):
         # weight decay or L2
@@ -169,6 +281,7 @@ class CPHDNN(nn.Module):
                 # print(f"c_index: {c_index/n}")
             self.loss_training.append(loss.item() / n)
             self.c_index_training.append(c_index / n)
+
     def _train_cv(self, foldn):
         d =  self.data.folds[foldn].train
         

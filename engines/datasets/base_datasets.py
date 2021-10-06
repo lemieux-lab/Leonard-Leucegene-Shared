@@ -61,13 +61,12 @@ class Data:
         return lsc17
 
     def set_input_targets(self, input, embfile = None):
-        self.model_type = input.split("-")[0]
-        self.data_type = input.split("-")[1]
+        self.data_type = input
         # input
         if self.data_type == "LSC17":
             # do something
             self.x = self.LSC17()
-        
+            self._reindex_expressions()
         if self.data_type == "PCA":
             try: 
                 self.x = self._xpca
@@ -132,7 +131,9 @@ class Data:
 
     def _reindex_targets(self):
         self.y = self.y.loc[self.x.index]
-
+    
+    def _reindex_expressions(self):
+        self.x = self.x.loc[self.y.index]
 
 class Leucegene_Dataset():
     def __init__(self, cohort, embedding_file = None) -> None:
