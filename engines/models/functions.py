@@ -185,7 +185,7 @@ def pca_plotting(datasets, pca_data, cohort, width, base_outpath):
         outpath = utils.assert_mkdir(os.path.join(base_outpath, cohort, width, "PCA",  f"_[{pc1 + 1},{pc2 +1 }]" ))
         
         # for features in datasets do smthing...
-        X = pca_data["proj_x"]
+        X = pca_data["proj_x"].values
         Y = datasets[cohort].data[width].y
         var_expl_pc1 = round(pca_data["pca"].explained_variance_ratio_[pc1], 4) * 100
         var_expl_pc2 = round(pca_data["pca"].explained_variance_ratio_[pc2] , 4) * 100

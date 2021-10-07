@@ -1,4 +1,5 @@
 from operator import xor
+from re import I
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -15,7 +16,10 @@ class Data:
         self.gene_info = gene_info
         self.device = device
         if reindex: self._reindex_targets()
-    
+        if len(self.y.columns) > 2:
+            self.y = self.y[["Overall_Survival_Time_days", "Overall_Survival_Status"]]
+            self.y.columns = ["t", "e"]
+            
     def folds_to_cuda_tensors(self, device = "cuda:0"):
         if "cuda" in self.device : return 
         for i in range(len(self.folds)):
@@ -53,12 +57,9 @@ class Data:
         # 
         # Writes to file 
         # 
+        self.x = self._xpca
         return {"proj_x":self._xpca, "pca":self._pca }
-    def LSC17(self):
-        
-        lsc17 = pd.read_csv("Data/SIGNATURES/LSC17_expressions.csv", index_col = 0)
-        #LSC17_expressions = self.x[self.x.columns[self.x.columns.isin(lsc17.merge(self.gene_info, left_on = "ensmbl_id_version", right_on = "featureID_x").featureID_y)]]
-        return lsc17
+
 
     def set_input_targets(self, input, embfile = None):
         self.data_type = input
@@ -67,37 +68,23 @@ class Data:
             # do something
             self.x = self.LSC17()
             self._reindex_expressions()
+        
         if self.data_type == "PCA":
             try: 
                 self.x = self._xpca
             except Exception:
                 self.generate_pca()
-                self.x = self._xpca
-
-        elif self.data_type == "FE":
-            print("Fetching embedding file...")
-            if embfile.split(".")[-1] == "npy":
-                emb_x = np.load(embfile)
-                self._xemb = emb_x
-            elif embfile.split(".")[-1] == "csv":
-                emb_x = pd.read_csv(embfile, index_col=0)
-                self._xemb = emb_x[emb_x.index.isin(self.y.index)]
-            self.x = pd.DataFrame(self._xemb, index = self.x.index)
+                
+            
             # evaluate variance in cols, drop low variance ones
             #if self.model_type == "CPH":
             #    nrem  = (self.x.var(0) < 0.001).sum()
             #    self.x = self.x.T[(self.x.var(0) > 0.001)].T
             #    print(f"Removed {nrem} columns with low variance")
-            
-        elif self.data_type == "clinf":
-            self.x = self.y[np.setdiff1d(self.y.columns, ["Overall_Survival_Time_days", "Overall_Survival_Status"])] # do smthing
-        else :
-            self.x = self.x 
+        
 
         # targets
-        if len(self.y.columns) > 2:
-            self.y = self.y[["Overall_Survival_Time_days", "Overall_Survival_Status"]]
-            self.y.columns = ["t", "e"]
+        
         
     def shuffle(self):
         self.x = self.x.sample(frac = 1)
@@ -128,6 +115,9 @@ class Data:
     def select_shuffle(self, n):
         self.x = self.x.loc[self.shuffles[n]]
         self._reindex_targets()
+    def reindex(self, idx):
+        self.x = self.x.iloc[idx]
+        self.y = self.y.loc[self.x.index]
 
     def _reindex_targets(self):
         self.y = self.y.loc[self.x.index]
@@ -165,9 +155,25 @@ class Leucegene_Dataset():
         cds_data = Data(self.GE_CDS_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_CDS")
         # set TRSC data
         trsc_data = Data(self.GE_TRSC_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_TRSC") 
-        
-        self.data = {"CDS": cds_data, "TRSC": trsc_data, }
+        # set LSC17 data
+        lsc17_data = Data(self.get_LSC17(), self.CF ,self.gene_info, name = f"{self.COHORT}_LSC17" )
+        FE_data =  Data(self.get_embedding(), self.CF, self.gene_info, name = f"{self.COHORT}_FE" )
+        self.data = {"CDS": cds_data, "TRSC": trsc_data, "LSC17":lsc17_data, "FE": FE_data}
+    
+    def get_embedding(self):
+        print("Fetching embedding file...")
+        if self.EMB_FILE.split(".")[-1] == "npy":
+            emb_x = np.load(self.EMB_FILE)
+        elif self.EMB_FILE.split(".")[-1] == "csv":
+            emb_x = pd.read_csv(self.EMB_FILE, index_col=0)
+        x = pd.DataFrame(emb_x, index = self.GE_CDS_LOG.index)
+        return x 
 
+    def get_LSC17(self):
+        
+        lsc17 = pd.read_csv("Data/SIGNATURES/LSC17_expressions.csv", index_col = 0)
+        #LSC17_expressions = self.x[self.x.columns[self.x.columns.isin(lsc17.merge(self.gene_info, left_on = "ensmbl_id_version", right_on = "featureID_x").featureID_y)]]
+        return lsc17
 
     def dump_infos(self, outpath):
         # self.GE_CDS_TPM_LOG.to_csv(f"{outpath}/GE_CDS_TPM_LOG.csv")

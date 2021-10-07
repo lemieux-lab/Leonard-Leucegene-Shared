@@ -31,7 +31,7 @@ Based on observations:
 * models train poorly with large input spaces generally. Because there are more parameters to optimize, optimization is harder and tends to overfit.
 * models train well when using narrow input space. Because less parameters to train. Convergence is faster, less biased and more generalizable.
 * Gene Expression data is very large, as the human genome contains about 20,000 coding sequences.
-* With linear models such as the Cox-PH regression, if important interactions are present and need to be modelised, then modeling interactions from imput space increases the size of the input quadratically. (ex.: [x1,x2,x3,x4] -> [x1,x2,x3,x4,x1^2,x2^2,x_3^2, x_4^2, x1\*x2, x1\*x3, x1\*x4, x2\*x3, x2\*x4, x3\*x4]).
+* With linear models such as the Cox-PH regression, if important interactions are present and need to be modelised, then modeling interactions from imput space increases the size of the input quadratically. (ex.: [x1,x2,x3,x4] -> [x1,x2,x3,x4,x1^2,x2^2,x3^2, x4^2, x1\*x2, x1\*x3, x1\*x4, x2\*x3, x2\*x4, x3\*x4]).
 * Some representations of data may preserve survival dependency in the sample and reduce the size of the input. 
 
 
@@ -44,8 +44,11 @@ The aim of this system is to provide a system that offers better accuracy than s
 
 ### What type of representations can we use to project the input features?
 The methods we'll use to project the data fall into three major schemes: a filtering or selection scheme, a linear embedding scheme or a non-linear embedding scheme. 
+```
+python main.py -PCA -TSNE -C pronostic -W LSC17 -PLOT
+```
 
-Which Cox model performs best on Leucegene data?
+### Which Cox model performs best on Leucegene data?
     What is a good performance?
         What is the right metric for computing survival prediction efficiency?
         Why do we use c index instead of log-rank test?

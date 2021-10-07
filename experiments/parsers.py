@@ -1,6 +1,6 @@
 import argparse 
 
-def parse_Cox_arguments():
+def parse_arguments():
     parser = argparse.ArgumentParser()
     # add control arguments
     parser.add_argument("-O", dest = "OUTFILES", action="store_true", help = "generate output files")
@@ -26,12 +26,10 @@ def parse_Cox_arguments():
     
     
     args = parser.parse_args()
-    return args
-
-def parse_FE_arguments() :
-    parser = argparse.ArgumentParser(description="Factorized Embedding parser")
-
-    ### Hyperparameter options
+    
+    
+    ### FACTORIZED EMBEDDINGS ###
+    ### Hyperparameter options ##
     parser.add_argument('--epoch', default=50, type=int, help='The number of epochs we want ot train the network.')
     parser.add_argument('--seed', default=123456, type=int, help='Seed for random initialization and stuff.')
     parser.add_argument('--batch-size', default=10000, type=int, help="The batch size.")

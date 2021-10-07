@@ -69,7 +69,7 @@ class Engine:
     def _load_datasets(self):
         ds = []
         for cohort in self.COHORTS:
-            ds.append([cohort, Leucegene_Dataset(cohort = cohort)])
+            ds.append([cohort, Leucegene_Dataset(cohort = cohort, embedding_file = self.EMB_FILE)])
         self.datasets = dict(ds)
     
     def run_benchmarks(self):
@@ -79,13 +79,20 @@ class Engine:
         tst_res = []
         agg_c_index = []
         width = "TRSC" 
-        data = self.datasets[cohort].data[width]
-        
-        data.shuffle() # IMPORTANT
-        data.split_train_test(nfolds = self.NFOLDS) # 5 fold cross-val 
+        cohort_data = self.datasets[cohort]
+        idx = np.arange(cohort_data.data["CDS"].x.shape[0])
+        np.random.shuffle(idx)
+
         # set input 
         for input in self.BENCHMARKS:
             # set data
+            if input.split("-")[1] == "PCA":
+                data = cohort_data.data["CDS"]
+                data.generate_pca()
+            else:
+                data = cohort_data.data[input.split("-")[1]]
+            data.reindex(idx)
+            data.split_train_test(self.NFOLDS)
             # width    
             scores = [] # store risk prediction scores for agg_c_index calc
             tr_res = [] # a data frame containing training optimzation results
@@ -93,10 +100,8 @@ class Engine:
                 print(f"foldN: {foldn + 1}")
                 #pdb.set_trace()
                 #data.to_DF() # reset data to cpu
-                test_data = data.folds[0].test
-                test_data.set_input_targets(input.split("-")[1], embfile = self.EMB_FILE)
-                train_data = data.folds[0].train
-                train_data.set_input_targets(input.split("-")[1], embfile = self.EMB_FILE) 
+                test_data = data.folds[foldn].test
+                train_data = data.folds[foldn].train
                 # choose model type and launch HP optim
                 hpopt = HPOptimiser(train_data, 
                     model_type = input.split("-")[0], 
