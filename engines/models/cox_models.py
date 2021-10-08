@@ -1,5 +1,5 @@
 from torch import nn 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import numpy as np
 from lifelines import CoxPHFitter
 import engines.models.functions as functions 
@@ -73,7 +73,7 @@ class CPH():
         return 999 
 
 class CoxSGD(nn.Module):
-    def __init__(self, data, nepochs = 1) -> None:
+    def __init__(self, data) -> None:
         super(CoxSGD, self).__init__()
         self.data = data
         self.loss_training = []
@@ -144,6 +144,7 @@ class CoxSGD(nn.Module):
         N = X.shape[0]
         self.nbatch = int(np.ceil(N / bs))
         for e in range(self.params["epochs"]): # add timer 
+            
             n = 0
             loss = 0
             c_index = 0
@@ -202,6 +203,7 @@ class CPHDNN(nn.Module):
     def set_fixed_params(self, hp_dict):
 
         self.params = hp_dict
+        self.params["input_size"] = self.data.x.shape[1]
         self.setup_stack()
         self.optimizer = torch.optim.Adam(self.parameters(), lr = self.params["lr"], weight_decay = self.params["wd"])        
         self.params["machine"] = os.uname()[1]
@@ -252,6 +254,7 @@ class CPHDNN(nn.Module):
             n = 0
             loss = 0
             c_index = 0
+            
             for i in range(self.nbatch):
                 train_ids = np.arange(i * bs , (i + 1) * bs)
                 sorted_ids = torch.argsort(d.y[train_ids,0], descending = True) 
@@ -292,6 +295,7 @@ class CPHDNN(nn.Module):
             n = 0
             loss = 0
             c_index = 0
+            
             for i in range(self.nbatch):
                 train_ids = np.arange(i * bs , (i + 1) * bs)
                 sorted_ids = torch.argsort(d.y[train_ids,0], descending = True) 
@@ -302,21 +306,17 @@ class CPHDNN(nn.Module):
                 #print (f"train E: {train_E.size()}")
                 #print(f"epoch: {e + 1} [{i+1}/{self.nbatch}]") 
                 self.optimizer.zero_grad()
-                try:  ### WORKAROUND, NANS in output of model 
-                    out = self.forward(train_features)
-                    l = self.loss(out, train_T, train_E)
-                    if np.isnan(out.detach().cpu().numpy()).any():
-                        raise ValueError("NaNs detected in forward pass")  ### WORKAROUND, NANS in output of model 
-                    c = functions.compute_c_index(train_T.detach().cpu().numpy(), train_E.detach().cpu().numpy(), out.detach().cpu().numpy())
-                    #print(f"c_index: {c}")
-                    l.backward() 
-        
-                    self.optimizer.step()
-                    loss += l
-                    c_index += c
-                    n += 1
-                except ValueError:
-                    return 0
+                out = self.forward(train_features)
+                l = self.loss(out, train_T, train_E)
+                c = functions.compute_c_index(train_T.detach().cpu().numpy(), train_E.detach().cpu().numpy(), out.detach().cpu().numpy())
+                #print(f"c_index: {c}")
+                l.backward() 
+    
+                self.optimizer.step()
+                loss += l
+                c_index += c
+                n += 1
+                
                 # print(f"loss: {loss/n}")
                 # print(f"c_index: {c_index/n}")
             self.loss_training.append(loss.item() / n)
@@ -330,7 +330,7 @@ class CPHDNN(nn.Module):
             #     print(f"valid c_index: {c}")
             #     self.loss_valid.append(l.item())
             #     self.c_index_valid.append(c)
-    
+        return c_index / n 
     def _valid_cv(self, foldn):
         # forward prop
         # loss
@@ -342,7 +342,8 @@ class CPHDNN(nn.Module):
         out = self.forward(valid_features)
         l = self.loss(out, valid_t, valid_e)
         c = functions.compute_c_index(valid_t.detach().cpu().numpy(),valid_e.detach().cpu().numpy(), out.detach().cpu().numpy())
-        return out, l , c
+    
+        return out.detach().cpu().numpy(), l , c
     
     def _test(self, test_data):
         test_data.to(self.params["device"])
@@ -352,17 +353,30 @@ class CPHDNN(nn.Module):
         out = self.forward(test_features)
         l = self.loss(out, test_t, test_e)
         c = functions.compute_c_index(test_t.detach().cpu().numpy(), test_e.detach().cpu().numpy(), out.detach().cpu().numpy())
-        return out, l, c
+        return out.detach().cpu().numpy(), l, c
 
     def setup_stack(self):
         
         stack = []
         print("Setting up stack... saving to GPU")
-        for layer_id in range(self.params["D"]):
+        
+        ## input layer, Hidden 1
+        stack.append([
+            [f"Linear_0", nn.Linear(self.params["input_size"], self.params["W"])],
+            [f"Non-Linearity_0", self.params["nL"]]])             
+        
+        ## hidden layers
+        for layer_id in range(self.params["D"]-1):
             stack.append([
-            [f"Linear_{layer_id}", nn.Linear(self.params["ARCH"]["W"][layer_id], self.params["ARCH"]["W"][layer_id + 1])],
-            [f"Non-Linearity_{layer_id}", self.params["ARCH"]["nL"][0]]])            
+            [f"Linear_{layer_id+1}", nn.Linear(self.params["W"], self.params["W"])],
+            [f"Non-Linearity_{layer_id + 1}", self.params["nL"]]])            
+        
+        ## output layer
+        stack.append([
+           [f"Linear_{layer_id + 1}", nn.Linear(self.params["W"], 1)],
+           [f"Non-Linearity_{layer_id + 1}", self.params["nL"]]])
+
         stack = np.concatenate(stack)
-        stack = stack[:-1]# remove last non linearity !!
+        stack = stack[:-1] # remove last non-lin (do not need it)
         self.stack = nn.Sequential(OrderedDict(stack)).to(self.params["device"])
     

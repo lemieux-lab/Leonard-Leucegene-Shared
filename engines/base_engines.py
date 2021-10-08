@@ -73,15 +73,16 @@ class Engine:
         self.datasets = dict(ds)
     
     def run_benchmarks(self):
-        # fix cohort and width
+        # fix cohort! for survival analysis
         cohort = "pronostic"
         # init results
         tst_res = []
+        tr_res = [] 
         agg_c_index = []
-        width = "TRSC" 
         cohort_data = self.datasets[cohort]
         idx = np.arange(cohort_data.data["CDS"].x.shape[0])
-        np.random.shuffle(idx)
+        np.random.shuffle(idx) # shuffle dataset! 
+        repn_hash = hash(sum(idx[:10] / idx[-10:]))
 
         # set input 
         for input in self.BENCHMARKS:
@@ -95,7 +96,8 @@ class Engine:
             data.split_train_test(self.NFOLDS)
             # width    
             scores = [] # store risk prediction scores for agg_c_index calc
-            tr_res = [] # a data frame containing training optimzation results
+            
+            # a data frame containing training optimzation results
             for foldn in tqdm(range(self.NFOLDS), desc = f"{input}"):
                 print(f"foldN: {foldn + 1}")
                 #pdb.set_trace()
@@ -114,21 +116,24 @@ class Engine:
                 # test
                 out, l, c = opt_model._test(test_data)
                 scores.append(out)
-                if "CPHDNN" in input: epochs = opt_model.params["epochs"]
-                else: epochs = -999
                 int_cv["foldn"] = foldn + 1 
+                int_cv["model_type"] = input
+                int_cv["repn_hash"] = repn_hash
                 tr_res.append(int_cv)
-                tr_res_df = pd.concat(tr_res)
-                tr_res_df.to_csv(f"{self.OUTPATHS['RES']}/{input}_intcv_benchmark.csv")
+                
+                #tr_res_df.to_csv(f"{self.OUTPATHS['RES']}/{input}_intcv_benchmark.csv")
                 
                 tst_res.append([input, foldn + 1, opt_model.params["wd"], opt_model.params["input_size"],c])
-            tst_agg_c = functions.compute_aggregated_c_index(scores, data)
+            # store training res
+            tst_agg_c = functions.compute_c_index(data.y["t"], data.y["e"], np.concatenate(scores))
             agg_c_index.append(np.ones(5) * tst_agg_c)
             # compute agg_c_index
-        tst_res = pd.DataFrame(tst_res, columns = ["model_type","foldn", "wd", "nIN_features", "fold_c_ind"])
-        tst_res["tst_agg_c_ind"] = np.concatenate(agg_c_index)
-        tst_res.to_csv(f"{self.OUTPATHS['RES']}/{input}_test_results.csv")
-        print(tst_res)
+        tr_res_df = pd.concat(tr_res)
+        tst_res_df = pd.DataFrame(tst_res, columns = ["model_type","foldn", "wd", "nIN_features", "fold_c_ind"])
+        tst_res_df["tst_agg_c_ind"] = np.concatenate(agg_c_index)
+        tst_res_df["repn_hash"] = repn_hash
+        return tst_res_df, tr_res_df
+
     def run_visualisations(self):
         for cohort in self.COHORTS:
             for width in self.WIDTHS: 

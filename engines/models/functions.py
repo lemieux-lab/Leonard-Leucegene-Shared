@@ -65,11 +65,7 @@ def plot_factorized_embedding(ds, embedding, MSEloss, emb_size, e, cohort = "pub
 
 
 def compute_aggregated_c_index(scores, data):
-    #scores_df = pd.concat([pd.DataFrame(s) for s in scores])
-    test_set = pd.concat([d.test.y for d in data.folds])
-    aggr = [test_set.merge(pd.DataFrame(s), left_index = True, right_index = True) for s in scores]
-    aggr_df = pd.concat(aggr)
-    aggr_c_ind = compute_c_index(aggr_df["t"], aggr_df["e"], aggr_df[0])
+    aggr_c_ind = compute_c_index(data.y["t"], data.y["e"], scores)
     return aggr_c_ind
 
 def compute_c_index(T,E, partial_hazards):

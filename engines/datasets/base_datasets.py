@@ -9,14 +9,14 @@ from sklearn.decomposition import PCA
 import torch
 
 class Data:
-    def __init__(self,x, y ,gene_info, name = "data", reindex = True, device = "cpu") -> None:
+    def __init__(self,x, y ,gene_info, name = "data", reindex = True, device = "cpu", learning = True) -> None:
         self.name = name
         self.x = x
         self.y = y
         self.gene_info = gene_info
         self.device = device
         if reindex: self._reindex_targets()
-        if len(self.y.columns) > 2:
+        if learning and len(self.y.columns) > 2:
             self.y = self.y[["Overall_Survival_Time_days", "Overall_Survival_Status"]]
             self.y.columns = ["t", "e"]
             
@@ -31,13 +31,34 @@ class Data:
             test = Data(x = test_x, y = test_y, gene_info = None, reindex =False)
             self.folds[i].train = train
             self.folds[i].test = test
-    
+
+    def split_train_test(self, nfolds, device = "cpu"):
+         # do nothing if dataset is already split! 
+        self.x = self.x.sample(frac = 1)
+        
+        n = self.x.shape[0]
+        fold_size = int(float(n)/nfolds)
+        self.folds = []
+        for i in range(nfolds):
+            fold_ids = np.arange(i * fold_size, min((i + 1) * fold_size, n))
+            test_x = self.x.iloc[fold_ids,:]
+            test_y = self.y.loc[test_x.index]
+            train_x = self.x.loc[~self.x.index.isin(test_x.index)]
+            train_y = self.y.loc[train_x.index]
+            self.folds.append(Data(self.x, self.y,  self.gene_info))
+            self.folds[i].train = Data(train_x, train_y, self.gene_info)
+            self.folds[i].train.to(device)
+            self.folds[i].test = Data(test_x,test_y, self.gene_info)
+            self.folds[i].test.to(device)
+        # reorder original data
+        self._reindex_targets()
+
     def to(self, device):    
-        if "cuda" in self.device: return 
+        self.device = device
+        if device == "cpu": return
         self.x = torch.Tensor(self.x.values).to(device)
         self.y = torch.Tensor(self.y.values).to(device)
-        self.device = device
-
+        
     def to_DF(self):
         if "cuda" in self.device :
             pdb.set_trace()
@@ -59,55 +80,13 @@ class Data:
         # 
         self.x = self._xpca
         return {"proj_x":self._xpca, "pca":self._pca }
-
-
-    def set_input_targets(self, input, embfile = None):
-        self.data_type = input
-        # input
-        if self.data_type == "LSC17":
-            # do something
-            self.x = self.LSC17()
-            self._reindex_expressions()
-        
-        if self.data_type == "PCA":
-            try: 
-                self.x = self._xpca
-            except Exception:
-                self.generate_pca()
-                
-            
-            # evaluate variance in cols, drop low variance ones
-            #if self.model_type == "CPH":
-            #    nrem  = (self.x.var(0) < 0.001).sum()
-            #    self.x = self.x.T[(self.x.var(0) > 0.001)].T
-            #    print(f"Removed {nrem} columns with low variance")
-        
-
-        # targets
         
         
     def shuffle(self):
         self.x = self.x.sample(frac = 1)
         self._reindex_targets()
         
-    def split_train_test(self, nfolds):
-        if "cuda" in self.device: return # do nothing if dataset is already split! 
-        dummy_ds = self.x.sample(frac = 1)
-        
-        n = self.x.shape[0]
-        fold_size = int(float(n)/nfolds)
-        self.folds = []
-        for i in range(nfolds):
-            fold_ids = np.arange(i * fold_size, min((i + 1) * fold_size, n))
-            test_x = dummy_ds.iloc[fold_ids,:]
-            test_y = self.y.loc[test_x.index]
-            train_x = self.x.loc[~self.x.index.isin(test_x.index)]
-            train_y = self.y.loc[train_x.index]
-            self.folds.append(Data(self.x, self.y,  self.gene_info))
-            self.folds[i].train = Data(train_x, train_y, self.gene_info)
-            self.folds[i].test = Data(test_x,test_y, self.gene_info)
-
-
+    
     def create_shuffles(self, n):
         print(f"Creates {n} data shuffles ...")
         self.shuffles = [self.x.sample(frac =1).index for i in range(n)]
@@ -126,8 +105,9 @@ class Data:
         self.x = self.x.loc[self.y.index]
 
 class Leucegene_Dataset():
-    def __init__(self, cohort, embedding_file = None) -> None:
+    def __init__(self, cohort, embedding_file = None, learning = True) -> None:
         self.COHORT = cohort
+        self.learning = learning # for machine learning data processing
         print(f"Loading ClinF {self.COHORT} file ...")
         self.CF_file = f"Data/lgn_{self.COHORT}_CF"
         self.EMB_FILE = embedding_file
@@ -152,12 +132,12 @@ class Leucegene_Dataset():
         self.GE_CDS_LOG = np.log(self._GE_CDS_TPM + 1)
         self.GE_TRSC_LOG = np.log(self._GE_TPM.T + 1)
         # set CDS data
-        cds_data = Data(self.GE_CDS_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_CDS")
+        cds_data = Data(self.GE_CDS_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_CDS", learning = self.learning)
         # set TRSC data
-        trsc_data = Data(self.GE_TRSC_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_TRSC") 
+        trsc_data = Data(self.GE_TRSC_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_TRSC", learning = self.learning) 
         # set LSC17 data
-        lsc17_data = Data(self.get_LSC17(), self.CF ,self.gene_info, name = f"{self.COHORT}_LSC17" )
-        FE_data =  Data(self.get_embedding(), self.CF, self.gene_info, name = f"{self.COHORT}_FE" )
+        lsc17_data = Data(self.get_LSC17(), self.CF ,self.gene_info, name = f"{self.COHORT}_LSC17", learning = self.learning )
+        FE_data =  Data(self.get_embedding(), self.CF, self.gene_info, name = f"{self.COHORT}_FE" , learning = self.learning) if self.EMB_FILE else None
         self.data = {"CDS": cds_data, "TRSC": trsc_data, "LSC17":lsc17_data, "FE": FE_data}
     
     def get_embedding(self):

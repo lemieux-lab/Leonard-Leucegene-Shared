@@ -1,5 +1,6 @@
 from engines.models.cox_models import CPH, CPHDNN, CoxSGD
 import engines.models.functions as functions 
+from torch import nn
 from collections import defaultdict
 from tqdm import tqdm
 import numpy as np
@@ -26,10 +27,9 @@ class HPOptimiser:
     def run(self):
     
         # choose correct model, init
-        model = self.model(self.data, nepochs = self.nepochs)
+        model = self.model(self.data)
         # split train / test (5)
-        model.data.split_train_test(nfolds = 5) # 5 fold cross-val
-        if self.model_type == "CPHDNN": model.data.folds_to_cuda_tensors()
+        model.data.split_train_test(nfolds = 5, device = ["cpu","cuda:0"][self.model_type == "CPHDNN"]) # 5 fold cross-val
         res = []
         best_params = None
         best_c_index = 0
@@ -42,6 +42,8 @@ class HPOptimiser:
             model.set_fixed_params(params)
             tr_c_index = []
             scores = []
+            print(rep_n, params)
+            
             # cycle through folds
             for fold_n in tqdm(range (self.nfolds), desc = f"{self.model_type} - N{rep_n + 1} - Internal Cross Val"):
   
@@ -52,8 +54,7 @@ class HPOptimiser:
                 scores.append(out)
                 # record accuracy
                 tr_c_index.append(tr_c)
-
-            c_ind_agg = functions.compute_aggregated_c_index(scores, model.data)
+            c_ind_agg = functions.compute_c_index(model.data.y["t"], model.data.y["e"], np.concatenate(scores))
             c_ind_tr = np.mean(tr_c_index)
             if c_ind_agg > best_c_index:
                 best_c_index = c_ind_agg
@@ -68,18 +69,34 @@ class HPOptimiser:
         # return model
         return res, opt_model
 
-
 class HPSearch:
     def __init__(self, model_type, nrep, nepochs = 100) -> None:
         self.nrep = nrep
         self.model_type = model_type
         self.lr = 1e-3 # fixed 
         self.nepochs = nepochs
-        self.params_list_generators = {"CPH": self.set_params_list_cph,
-         "CoxSGD": self.set_params_list_coxsgd}
+        self.params_list_generators = {
+            "CPH": self.set_params_list_cph,
+            "CoxSGD": self.set_params_list_coxsgd, 
+            "CPHDNN": self.set_params_list_cphdnn
+        }
         self.params_list = self.params_list_generators[self.model_type]()
         
-    
+    def set_params_list_cphdnn(self):
+        params_list = []
+        for i in range(self.nrep):
+            params = defaultdict()
+            params["wd"] = np.power(10, np.random.uniform(-10, -8)) # sample WD  
+            params["lr"] = self.lr
+            params["epochs"] = self.nepochs 
+            params["D"] = np.random.randint(2,4)
+            params["W"] = np.random.randint(2,2048)
+            params["nL"] = nn.ReLU()
+            params["opt_nepochs"] = 300 # fixed
+            params["device"] = "cuda:0"
+            params_list.append(params)
+        return params_list 
+
     def set_params_list_coxsgd(self):
         params_list = []
         for i in range(self.nrep):
