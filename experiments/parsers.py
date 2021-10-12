@@ -2,6 +2,7 @@ import argparse
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--run_experiment", dest = "EXP", type = str, default = "3", help = "experiment number and version")
     # add control arguments
     parser.add_argument("-O", dest = "OUTFILES", action="store_true", help = "generate output files")
     parser.add_argument("-d", dest = "debug", action="store_true", help = "debug")
@@ -11,7 +12,8 @@ def parse_arguments():
     parser.add_argument("-MAX_PC", dest = "MAX_PC", type = int,  default = 10, help = "Number of PC to be analysed (GO enrichment, figures)" )
     parser.add_argument("-GO_TOP_N", dest = "GO_TOP_N", type = int,  default = 1000, help = "Number of genes in gene set when performing GO enrichment analysis" )
     parser.add_argument("-FIXED_EMB", dest = "EMB_FILE", type = str, default = "Data/emb125_MLP25.csv", help = "name of embedding file used for fixed embedding mode CPH training prediction.")
-    parser.add_argument("-B", dest = "BENCHMARKS", type = str, nargs = "+", default = ["CPH-PCA", "CoxSGD-PCA"], help= "list of benchmarked models for survival prediction")
+    parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse"], help= "list of projection types for survival prediction and further analyses")
+    parser.add_argument("-M", dest = "MODEL_TYPES", type = str, nargs = "+", default = ["CPH"], help= "list of models to perform survival modelling.")
     parser.add_argument("-N_OPTIM", dest = "NREP_OPTIM", default = 1, type = int, help = "number of optimizations for Hyper parameters")
     parser.add_argument("-N_REP", dest = "NREP_TECHN", default = 10, type = int, help = "number of technical replicates") 
     parser.add_argument("-E", dest = "NEPOCHS", default = 1, type = int, help = "number of epochs for optim of DNN models")
@@ -24,10 +26,6 @@ def parse_arguments():
     parser.add_argument("-PLOT", dest = "PLOT", action = "store_true")
     parser.add_argument("-CPH", dest = "CPH", action = "store_true") 
     parser.add_argument("-CPHDNN", dest = "CPHDNN", action = "store_true")  
-    
-    
-    args = parser.parse_args()
-    
     
     ### FACTORIZED EMBEDDINGS ###
     ### Hyperparameter options ##

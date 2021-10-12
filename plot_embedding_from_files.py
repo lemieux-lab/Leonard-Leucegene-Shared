@@ -40,7 +40,7 @@ def plot_factorized_embedding(ds, embedding,  e = 0, cohort = "public", method =
 
     # plot cyto group
     markers = ['<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X']*5
-    np.random.shuffle(markers)
+    #np.random.shuffle(markers)
     # fix label
     
     #perplexity = 30

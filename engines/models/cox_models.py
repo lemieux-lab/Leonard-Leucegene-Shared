@@ -34,6 +34,7 @@ class CPH():
         self.model = CPH.fit(ds, duration_col = "T", event_col = "E")
         l = self.model.log_likelihood_
         c = self.model.concordance_index_
+        return {"l":l, "c":c}
 
     def _train_cv(self, fold_index):
         # create lifelines dataset
@@ -67,7 +68,7 @@ class CPH():
         out = self.model.predict_log_partial_hazard(test_features)
         l = self.loss(out, test_t, test_e)
         c = functions.compute_c_index(test_t, test_e, out)
-        return out, l, c
+        return {"out":out, "l":l, "c":c}
     
     def loss(self, out, T, E): 
         return 999 

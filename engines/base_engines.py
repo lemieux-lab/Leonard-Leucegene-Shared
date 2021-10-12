@@ -5,6 +5,8 @@ import engines.datasets.FE_datasets as FE_Datasets
 import engines.models.functions as functions 
 import engines.models.dimredox_models as models
 from engines.optimisers.base_optimisers import HPOptimiser
+from engines.models import cox_models
+from engines import utils
 # base
 from torch.autograd import Variable
 from datetime import datetime
@@ -31,7 +33,6 @@ class Engine:
         self.GO_TOP_N = params.GO_TOP_N # int
         self.RUN_CPH = params.CPH
         self.RUN_CPHDNN = params.CPHDNN
-        self.BENCHMARKS = params.BENCHMARKS
         self.EMB_FILE = params.EMB_FILE
         self.NREP_OPTIM = params.NREP_OPTIM
         self.NEPOCHS = params.NEPOCHS
@@ -71,68 +72,6 @@ class Engine:
         for cohort in self.COHORTS:
             ds.append([cohort, Leucegene_Dataset(cohort = cohort, embedding_file = self.EMB_FILE)])
         self.datasets = dict(ds)
-    
-    def run_benchmarks(self):
-        # fix cohort! for survival analysis
-        cohort = "pronostic"
-        # init results
-        tst_res = []
-        tr_res = [] 
-        agg_c_index = []
-        cohort_data = self.datasets[cohort]
-        idx = np.arange(cohort_data.data["CDS"].x.shape[0])
-        np.random.shuffle(idx) # shuffle dataset! 
-        repn_hash = hash(sum(idx[:10] / idx[-10:]))
-
-        # set input 
-        for input in self.BENCHMARKS:
-            # set data
-            if input.split("-")[1] == "PCA":
-                data = cohort_data.data["CDS"]
-                data.generate_pca()
-            else:
-                data = cohort_data.data[input.split("-")[1]]
-            data.reindex(idx)
-            data.split_train_test(self.NFOLDS)
-            # width    
-            scores = [] # store risk prediction scores for agg_c_index calc
-            
-            # a data frame containing training optimzation results
-            for foldn in tqdm(range(self.NFOLDS), desc = f"{input}"):
-                print(f"foldN: {foldn + 1}")
-                #pdb.set_trace()
-                #data.to_DF() # reset data to cpu
-                test_data = data.folds[foldn].test
-                train_data = data.folds[foldn].train
-                # choose model type and launch HP optim
-                hpopt = HPOptimiser(train_data, 
-                    model_type = input.split("-")[0], 
-                    n = self.NREP_OPTIM, 
-                    nfolds = self.INT_NFOLDS, 
-                    nepochs = self.NEPOCHS,
-                    pca_input_size_range = self.N_PCs)
-                
-                int_cv, opt_model = hpopt.run()
-                # test
-                out, l, c = opt_model._test(test_data)
-                scores.append(out)
-                int_cv["foldn"] = foldn + 1 
-                int_cv["model_type"] = input
-                int_cv["repn_hash"] = repn_hash
-                tr_res.append(int_cv)
-                
-                #tr_res_df.to_csv(f"{self.OUTPATHS['RES']}/{input}_intcv_benchmark.csv")
-                
-                tst_res.append([input, foldn + 1, opt_model.params["wd"], opt_model.params["input_size"],c])
-            # store training res
-            tst_agg_c = functions.compute_c_index(data.y["t"], data.y["e"], np.concatenate(scores))
-            agg_c_index.append(np.ones(5) * tst_agg_c)
-            # compute agg_c_index
-        tr_res_df = pd.concat(tr_res)
-        tst_res_df = pd.DataFrame(tst_res, columns = ["model_type","foldn", "wd", "nIN_features", "fold_c_ind"])
-        tst_res_df["tst_agg_c_ind"] = np.concatenate(agg_c_index)
-        tst_res_df["repn_hash"] = repn_hash
-        return tst_res_df, tr_res_df
 
     def run_visualisations(self):
         for cohort in self.COHORTS:
@@ -191,6 +130,79 @@ class Engine:
                     cohort, 
                     width, 
                     self.OUTPATHS["RES"])
+
+class Benchmark(Engine):
+    def __init__(self, params):
+        self.EXP = params.EXP
+        self.COHORT = "pronostic"     # fix cohort! for survival analysis
+        self.PROJ_TYPES = params.PROJ_TYPES
+        self.REP_N = params.NREP_TECHN
+        self.OUTDIR = utils.assert_mkdir(f"RES/EXP_{self.EXP}/{datetime.now()}")
+        self.OUTFILE = os.path.join(self.OUTDIR, "tableS.txt")
+        super().__init__(params)
+    def _perform_projection(self, proj_type, cohort_data, input_size = 17):    
+        # set data
+        if proj_type == "PCA":
+            data = cohort_data.data["CDS"].clone()
+            data.generate_PCA()
+        elif proj_type == "SVD":
+            data = cohort_data.data["CDS"].clone()
+            data.generate_SVD(input_size)
+        elif proj_type == "RPgauss":
+            data = cohort_data.data["CDS"].clone()
+            data.generate_RP("gauss", input_size)
+        elif proj_type == "RPsparse":
+            data = cohort_data.data["CDS"].clone()
+            data.generate_RP("sparse", input_size)
+        elif proj_type == "RS17":
+            data = cohort_data.data["CDS"].clone()
+            data.generate_RS(input_size)
+        else:
+            data = cohort_data.data[proj_type].clone()
+        return data 
+    
+    def _dump(self, line):
+        with open(self.OUTFILE, "a") as o:
+            o.writelines(line)
+    
+    def run(self, input_dim = 17):    
+        # init results
+        tst_res = []
+        tr_res = [] 
+        agg_c_index = []
+        cohort_data = self.datasets[self.COHORT]
+        header = ",".join(["rep_n", "proj_type", "k", "c_ind_tr", "c_ind_tst"]) + "\n"
+        self._dump(header)
+        for rep_n in range(self.REP_N):
+            idx = np.arange(cohort_data.data["CDS"].x.shape[0])
+            np.random.shuffle(idx) # shuffle dataset! 
+
+            for proj_type in self.PROJ_TYPES:
+                data = self._perform_projection(proj_type, cohort_data, input_dim)
+                data.reindex(idx) # shuffle 
+                data.split_train_test(self.NFOLDS)
+                # width    
+                tst_scores = [] # store risk prediction scores for agg_c_index calc
+                tr_c_ind_list = [] # store risk prediction scores for agg_c_index calc 
+                # a data frame containing training optimzation results
+                for foldn in tqdm(range(self.NFOLDS), desc = f"{rep_n + 1}-{proj_type}"):
+                    test_data = data.folds[foldn].test
+                    train_data = data.folds[foldn].train
+                    # choose model type, hps and train
+                    model = cox_models.CPH(data = train_data)
+                    model.set_fixed_params({"input_size": input_dim, "wd": 1e-10})
+                    tr_metrics = model._train()
+                    # test
+                    tst_metrics = model._test(test_data)
+                    tst_scores.append(tst_metrics["out"])
+                    tr_c_ind_list.append(tr_metrics["c"])
+
+                c_ind_tr = np.mean(tr_c_ind_list)
+                c_ind_tst = functions.compute_c_index(data.y["t"], data.y["e"], np.concatenate(tst_scores))
+                line = ",".join(np.array([rep_n, proj_type, input_dim, c_ind_tr, c_ind_tst]).astype(str)) + "\n"
+                self._dump(line)
+        
+        return self.OUTFILE
 
 class FE_Engine:
     def __init__(self, params) -> None:

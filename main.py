@@ -7,14 +7,20 @@ warnings.filterwarnings('ignore', '.*do not.*', )
 import experiments.parsers as parsers
 args = parsers.parse_arguments()
 #FE_args = parsers.parse_FE_arguments()
+class ExperimentLoader:
+    def __init__(self) -> None:
+        from experiments import exp_3_0
+        self.experiment_dict = {
+            "3.0": exp_3_0
+        }
+    def load_experiment(self, exp_vn):
+        """Load and returns an Experiment Object"""
+        return self.experiment_dict[exp_vn]
 
 def main():
     # custom
-    import experiments.experiments_Cox_1 as CoxExperiments
-    # E.run_experiment_1(args)
-    #CoxExperiments.run_experiment_1(args)
-    CoxExperiments.run_experiment_2(args)
-     
+    e = ExperimentLoader().load_experiment(args.EXP)
+    e.run(args)
     # import experiments.experiments_FE as FE_exp
     # FE_exp.run_experiment(FE_args)
     #import experiments.experiments_PCA as PCAExperiments

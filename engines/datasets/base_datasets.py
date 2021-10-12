@@ -5,7 +5,8 @@ import pandas as pd
 from tqdm import tqdm
 import pdb
 import os 
-from sklearn.decomposition import PCA 
+from sklearn.decomposition import PCA, TruncatedSVD
+from sklearn import random_projection
 import torch
 
 class Data:
@@ -19,7 +20,10 @@ class Data:
         if learning and len(self.y.columns) > 2:
             self.y = self.y[["Overall_Survival_Time_days", "Overall_Survival_Status"]]
             self.y.columns = ["t", "e"]
-            
+    
+    def clone(self):
+        return Data(self.x, self.y, self.gene_info)
+      
     def folds_to_cuda_tensors(self, device = "cuda:0"):
         if "cuda" in self.device : return 
         for i in range(len(self.folds)):
@@ -65,7 +69,7 @@ class Data:
             self.x = pd.DataFrame(self.x.detach().cpu().numpy())
             self.y = pd.DataFrame(self.y.detach().cpu().numpy(), columns = ["t", "e"])
     
-    def generate_pca(self):
+    def generate_PCA(self):
         print("Running PCA...")
         
         # init object
@@ -81,7 +85,27 @@ class Data:
         self.x = self._xpca
         return {"proj_x":self._xpca, "pca":self._pca }
         
-        
+    def generate_RP(self, method, n = 17):
+        print("Running Random Projection...")
+        if method == "gauss":
+            self.transformer = random_projection.GaussianRandomProjection(n_components=n)
+            self._xrp = pd.DataFrame(self.transformer.fit_transform(self.x), index = self.x.index)
+        elif method == "sparse":
+            self.transformer = random_projection.SparseRandomProjection(n_components=n)
+            self._xrp = pd.DataFrame(self.transformer.fit_transform(self.x), index = self.x.index)
+        self.x = self._xrp
+    
+    def generate_RS(self, n):
+        print("Random signature...")
+        col_ids = np.arange(self.x.shape[1])
+        np.random.shuffle(col_ids)
+        self.x = self.x.iloc[:,col_ids[:n]]
+
+    def generate_SVD(self, n):
+        print("Running Singular Value Decomposition SVD ...")
+        svd = TruncatedSVD(n_components = n)
+        self.x = pd.DataFrame(svd.fit_transform(self.x), index = self.x.index)
+
     def shuffle(self):
         self.x = self.x.sample(frac = 1)
         self._reindex_targets()
