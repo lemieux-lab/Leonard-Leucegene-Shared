@@ -12,12 +12,13 @@ def parse_arguments():
     parser.add_argument("-MAX_PC", dest = "MAX_PC", type = int,  default = 10, help = "Number of PC to be analysed (GO enrichment, figures)" )
     parser.add_argument("-GO_TOP_N", dest = "GO_TOP_N", type = int,  default = 1000, help = "Number of genes in gene set when performing GO enrichment analysis" )
     parser.add_argument("-FIXED_EMB", dest = "EMB_FILE", type = str, default = "Data/emb125_MLP25.csv", help = "name of embedding file used for fixed embedding mode CPH training prediction.")
-    parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse"], help= "list of projection types for survival prediction and further analyses")
     parser.add_argument("-M", dest = "MODEL_TYPES", type = str, nargs = "+", default = ["CPH"], help= "list of models to perform survival modelling.")
     parser.add_argument("-N_OPTIM", dest = "NREP_OPTIM", default = 1, type = int, help = "number of optimizations for Hyper parameters")
     parser.add_argument("-N_REP", dest = "NREP_TECHN", default = 10, type = int, help = "number of technical replicates") 
     parser.add_argument("-E", dest = "NEPOCHS", default = 1, type = int, help = "number of epochs for optim of DNN models")
-    parser.add_argument("-N_PCs", dest = "N_PCs", default = [17,18], type = int, nargs = "+", help = "range (min, max) of n principal components to test in models, sequentially")
+    parser.add_argument("-IN_D", dest = "INPUT_DIMS", default = 17, type = int, help = " number of input dimensions to test in models")
+    parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse"], help= "list of projection types for survival prediction and further analyses")
+    parser.add_argument("-P_BG", dest = "BG_PROJ_TYPE", type = str, default ="RPsparse", help= "projection type of background distribution of accuracies")
     
     # TRUE FALSE control parameters
     parser.add_argument("-PCA", dest = "PCA", action="store_true")

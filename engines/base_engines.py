@@ -36,7 +36,6 @@ class Engine:
         self.EMB_FILE = params.EMB_FILE
         self.NREP_OPTIM = params.NREP_OPTIM
         self.NEPOCHS = params.NEPOCHS
-        self.N_PCs = params.N_PCs
         # HARDCODE
         self.NFOLDS = 5
         self.INT_NFOLDS = 5
@@ -140,6 +139,7 @@ class Benchmark(Engine):
         self.OUTDIR = utils.assert_mkdir(f"RES/EXP_{self.EXP}/{datetime.now()}")
         self.OUTFILE = os.path.join(self.OUTDIR, "tableS.txt")
         super().__init__(params)
+
     def _perform_projection(self, proj_type, cohort_data, input_size = 17):    
         # set data
         if proj_type == "PCA":
@@ -202,6 +202,50 @@ class Benchmark(Engine):
                 line = ",".join(np.array([rep_n, proj_type, input_dim, c_ind_tr, c_ind_tst]).astype(str)) + "\n"
                 self._dump(line)
         
+        return self.OUTFILE
+
+class RP_BG_Engine(Benchmark):
+    """
+    Class that computes accuracy with random projection of data 
+    """
+    def __init__(self, params):
+        self.INPUT_DIMS = params.INPUT_DIMS
+        self.PROJ_TYPE = params.BG_PROJ_TYPE
+        super().__init__(params)
+
+    def run(self):
+        # select cohort data
+        cohort_data = self.datasets[self.COHORT]
+        header = ",".join(["rep_n", "proj_type", "k", "c_ind_tr", "c_ind_tst"]) + "\n"
+        self._dump(header)
+        for rep_n in range(self.REP_N):
+            idx = np.arange(cohort_data.data["CDS"].x.shape[0])
+            np.random.shuffle(idx) # shuffle dataset! 
+
+            data = self._perform_projection(self.PROJ_TYPE, cohort_data, self.INPUT_DIMS)
+            data.reindex(idx) # shuffle 
+            data.split_train_test(self.NFOLDS)
+            # width    
+            tst_scores = [] # store risk prediction scores for agg_c_index calc
+            tr_c_ind_list = [] # store risk prediction scores for agg_c_index calc 
+            # a data frame containing training optimzation results
+            for foldn in tqdm(range(self.NFOLDS), desc = f"{rep_n + 1}-{self.PROJ_TYPE}"):
+                test_data = data.folds[foldn].test
+                train_data = data.folds[foldn].train
+                # choose model type, hps and train
+                model = cox_models.CPH(data = train_data)
+                model.set_fixed_params({"input_size": self.INPUT_DIMS, "wd": 1e-10})
+                tr_metrics = model._train()
+                # test
+                tst_metrics = model._test(test_data)
+                tst_scores.append(tst_metrics["out"])
+                tr_c_ind_list.append(tr_metrics["c"])
+
+            c_ind_tr = np.mean(tr_c_ind_list)
+            c_ind_tst = functions.compute_c_index(data.y["t"], data.y["e"], np.concatenate(tst_scores))
+            line = ",".join(np.array([rep_n, self.PROJ_TYPE, self.INPUT_DIMS, c_ind_tr, c_ind_tst]).astype(str)) + "\n"
+            self._dump(line)
+    
         return self.OUTFILE
 
 class FE_Engine:
