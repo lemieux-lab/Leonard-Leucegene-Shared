@@ -4,7 +4,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run_experiment", dest = "EXP", type = str, default = "3", help = "experiment number and version")
     # add control arguments
-    parser.add_argument("-O", dest = "OUTFILES", action="store_true", help = "generate output files")
+    parser.add_argument("-O", dest = "OUTPATH", type = str, default = "RES/current/", help = "generated output filepath, (will override existing)")
     parser.add_argument("-d", dest = "debug", action="store_true", help = "debug")
     parser.add_argument("-C", dest = "COHORTS", nargs = "+", type = str, default = ["public", "pronostic"], help = "public: \tThe Leucegene public subset = 403 samples. Curated samples subset to complete different feature prediction on.\n pronostic: The Leucegene pronostic subset = 300 samples. Curated samples subset that was selected to perform survival analysis on. ")
     parser.add_argument("-W", dest = "WIDTHS", nargs = "+", type = str,  default = ["CDS", "TRSC"], help = "Dimensionality of input features space. \n CDS: Small transcriptome ~= 19,500 variables \nTRSC: Full transcriptome ~= 54,500 transcripts. Can put as many jobs in this queue. Jobs will be done sequentially" )
@@ -17,9 +17,15 @@ def parse_arguments():
     parser.add_argument("-N_REP", dest = "NREP_TECHN", default = 10, type = int, help = "number of technical replicates") 
     parser.add_argument("-E", dest = "NEPOCHS", default = 1, type = int, help = "number of epochs for optim of DNN models")
     parser.add_argument("-IN_D", dest = "INPUT_DIMS", default = 17, type = int, help = " number of input dimensions to test in models")
-    parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse"], help= "list of projection types for survival prediction and further analyses")
-    parser.add_argument("-P_BG", dest = "BG_PROJ_TYPE", type = str, default ="RPsparse", help= "projection type of background distribution of accuracies")
-    
+    # for the input projection types
+    help = "list of projection types for survival prediction and further analyses default = [PCA, SVD, LSC17, RPgauss, RPsparse]"
+    parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse"], help= help)
+    # for the projection type of the background
+    help = "projection type of background distribution of accuracies, default =RPsparse"
+    parser.add_argument("-P_BG", dest = "BG_PROJ_TYPE", type = str, default ="RPsparse", help= help)
+    help = "number of output dimensions, or input dims for the Cox model.  default = [1,2,3,5,10,20,50,100,200,1000]"
+    parser.add_argument("-P_BG_M", dest = "BG_REDOXDIMRANGE", nargs = "+", type = int, default = [1,2,3,5,10,20,50,100,200,1000], help= help)
+     
     # TRUE FALSE control parameters
     parser.add_argument("-PCA", dest = "PCA", action="store_true")
     parser.add_argument("-GO", dest = "GO", action = "store_true")

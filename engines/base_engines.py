@@ -21,7 +21,8 @@ import time
 
 class Engine:
     def __init__(self, params):
-        self.OUTFILES = params.OUTFILES # bool
+        self._params = params
+        self.OUTPATH = params.OUTPATH #str
         self.RUN_PCA = params.PCA # bool
         self.RUN_TSNE = params.TSNE # bool
         self.N_TSNE = params.N_TSNE # int
@@ -43,7 +44,8 @@ class Engine:
         self._load_datasets()
         # HARDCODE
         self.OUTPATHS = {   # dict
-            "RES": os.path.join("RES") #utils.assert_mkdir(f"RES{datetime.now()}"))
+            "RES": utils.assert_mkdir(os.path.join(self.OUTPATH, "RES")),
+            "FIG": utils.assert_mkdir(os.path.join(self.OUTPATH, "FIG"))    
         }
     def _init_CF_files(self):
         infos = pd.read_csv("Data/lgn_ALL_CF", sep = "\t").T
@@ -211,6 +213,7 @@ class RP_BG_Engine(Benchmark):
     def __init__(self, params):
         self.INPUT_DIMS = params.INPUT_DIMS
         self.PROJ_TYPE = params.BG_PROJ_TYPE
+        self.REDOXDIMRANGE = params.BG_REDOXDIMRANGE
         super().__init__(params)
 
     def run(self):
