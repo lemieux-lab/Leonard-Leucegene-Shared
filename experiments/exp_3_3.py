@@ -10,16 +10,11 @@ def _produce_table_S(args):
     -RUN PCA
     -RUN LSC17  
     outputs to dataframe"""
-    print("OUT-Producing table S (benchmark)...")
+    print("OUT-Producing benchmark table ...")
     # run the random projection engine
     from engines.base_engines import RP_BG_Engine # Random Propjection Background Engine
     rp_bg = RP_BG_Engine(params = args)
     outfile = rp_bg.run()
-    # run the benchmark engine 
-    from engines.base_engines import Benchmark
-    b = Benchmark(params = args)
-    b.run()
-    pdb.set_trace()
 
 
 def _produce_tSNE_B(args):

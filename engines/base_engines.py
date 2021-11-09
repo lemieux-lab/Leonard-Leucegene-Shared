@@ -23,6 +23,7 @@ class Engine:
     def __init__(self, params):
         self._params = params
         self.OUTPATH = params.OUTPATH #str
+        self.INPUT_DIMS = params.INPUT_DIMS
         self.RUN_PCA = params.PCA # bool
         self.RUN_TSNE = params.TSNE # bool
         self.N_TSNE = params.N_TSNE # int
@@ -43,10 +44,8 @@ class Engine:
         self._init_CF_files()
         self._load_datasets()
         # HARDCODE
-        self.OUTPATHS = {   # dict
-            "RES": utils.assert_mkdir(os.path.join(self.OUTPATH, "RES")),
-            "FIG": utils.assert_mkdir(os.path.join(self.OUTPATH, "FIG"))    
-        }
+        self.OUTDIR = utils.assert_mkdir(self.OUTPATH)
+        self.OUTFILE = os.path.join(self.OUTDIR, f"bg_m_{self.INPUT_DIMS}_{datetime.now()}_table.csv")
     def _init_CF_files(self):
         infos = pd.read_csv("Data/lgn_ALL_CF", sep = "\t").T
         infos.columns = infos.iloc[0,:] # rename cols
@@ -138,8 +137,7 @@ class Benchmark(Engine):
         self.COHORT = "pronostic"     # fix cohort! for survival analysis
         self.PROJ_TYPES = params.PROJ_TYPES
         self.REP_N = params.NREP_TECHN
-        self.OUTDIR = utils.assert_mkdir(f"RES/EXP_{self.EXP}/{datetime.now()}")
-        self.OUTFILE = os.path.join(self.OUTDIR, "tableS.txt")
+        
         super().__init__(params)
 
     def _perform_projection(self, proj_type, cohort_data, input_size = 17):    
@@ -156,7 +154,7 @@ class Benchmark(Engine):
         elif proj_type == "RPsparse":
             data = cohort_data.data["CDS"].clone()
             data.generate_RP("sparse", input_size)
-        elif proj_type == "RS17":
+        elif proj_type == "RSelect":
             data = cohort_data.data["CDS"].clone()
             data.generate_RS(input_size)
         else:
@@ -211,43 +209,46 @@ class RP_BG_Engine(Benchmark):
     Class that computes accuracy with random projection of data 
     """
     def __init__(self, params):
-        self.INPUT_DIMS = params.INPUT_DIMS
-        self.PROJ_TYPE = params.BG_PROJ_TYPE
-        self.REDOXDIMRANGE = params.BG_REDOXDIMRANGE
         super().__init__(params)
+        
+    def _evaluate(self, data, label):
+        tst_scores = [] # store risk prediction scores for agg_c_index calc
+        tr_c_ind_list = [] # store risk prediction scores for agg_c_index calc 
+        # a data frame containing training optimzation results
+        for foldn in tqdm(range(self.NFOLDS), desc = label):
+            test_data = data.folds[foldn].test
+            train_data = data.folds[foldn].train
+            # choose model type, hps and train
+            model = cox_models.CPH(data = train_data)
+            model.set_fixed_params({"input_size": self.INPUT_DIMS, "wd": 1e-10})
+            tr_metrics = model._train()
+            # test
+            tst_metrics = model._test(test_data)
+            tst_scores.append(tst_metrics["out"])
+            tr_c_ind_list.append(tr_metrics["c"])
+        return tst_scores, tr_c_ind_list
 
     def run(self):
         # select cohort data
         cohort_data = self.datasets[self.COHORT]
         header = ",".join(["rep_n", "proj_type", "k", "c_ind_tr", "c_ind_tst"]) + "\n"
         self._dump(header)
-        for rep_n in range(self.REP_N):
-            idx = np.arange(cohort_data.data["CDS"].x.shape[0])
-            np.random.shuffle(idx) # shuffle dataset! 
+        for proj_type in self.PROJ_TYPES:
+            for rep_n in range(self.REP_N):
+                idx = np.arange(cohort_data.data["CDS"].x.shape[0])
+                np.random.shuffle(idx) # shuffle dataset! 
 
-            data = self._perform_projection(self.PROJ_TYPE, cohort_data, self.INPUT_DIMS)
-            data.reindex(idx) # shuffle 
-            data.split_train_test(self.NFOLDS)
-            # width    
-            tst_scores = [] # store risk prediction scores for agg_c_index calc
-            tr_c_ind_list = [] # store risk prediction scores for agg_c_index calc 
-            # a data frame containing training optimzation results
-            for foldn in tqdm(range(self.NFOLDS), desc = f"{rep_n + 1}-{self.PROJ_TYPE}"):
-                test_data = data.folds[foldn].test
-                train_data = data.folds[foldn].train
-                # choose model type, hps and train
-                model = cox_models.CPH(data = train_data)
-                model.set_fixed_params({"input_size": self.INPUT_DIMS, "wd": 1e-10})
-                tr_metrics = model._train()
-                # test
-                tst_metrics = model._test(test_data)
-                tst_scores.append(tst_metrics["out"])
-                tr_c_ind_list.append(tr_metrics["c"])
+                data = self._perform_projection(proj_type, cohort_data, self.INPUT_DIMS)
+                data.reindex(idx) # shuffle 
+                
+                data.split_train_test(self.NFOLDS)
+                # width    
+                tst_scores, tr_c_ind_list = self._evaluate(data, label = f"{rep_n + 1}-{proj_type}")
 
-            c_ind_tr = np.mean(tr_c_ind_list)
-            c_ind_tst = functions.compute_c_index(data.y["t"], data.y["e"], np.concatenate(tst_scores))
-            line = ",".join(np.array([rep_n, self.PROJ_TYPE, self.INPUT_DIMS, c_ind_tr, c_ind_tst]).astype(str)) + "\n"
-            self._dump(line)
+                c_ind_tr = np.mean(tr_c_ind_list)
+                c_ind_tst = functions.compute_c_index(data.y["t"], data.y["e"], np.concatenate(tst_scores))
+                line = ",".join(np.array([rep_n, proj_type, self.INPUT_DIMS, c_ind_tr, c_ind_tst]).astype(str)) + "\n"
+                self._dump(line)
     
         return self.OUTFILE
 

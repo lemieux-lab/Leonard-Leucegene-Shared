@@ -18,13 +18,12 @@ def parse_arguments():
     parser.add_argument("-E", dest = "NEPOCHS", default = 1, type = int, help = "number of epochs for optim of DNN models")
     parser.add_argument("-IN_D", dest = "INPUT_DIMS", default = 17, type = int, help = " number of input dimensions to test in models")
     # for the input projection types
-    help = "list of projection types for survival prediction and further analyses default = [PCA, SVD, LSC17, RPgauss, RPsparse]"
-    parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse"], help= help)
+    help = "list of projection types for survival prediction and further analyses default = [PCA, SVD, LSC17, RPgauss, RPsparse, RSelect]"
+    parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse", "RSelect"], help= help)
     # for the projection type of the background
     help = "projection type of background distribution of accuracies, default =RPsparse"
     parser.add_argument("-P_BG", dest = "BG_PROJ_TYPE", type = str, default ="RPsparse", help= help)
     help = "number of output dimensions, or input dims for the Cox model.  default = [1,2,3,5,10,20,50,100,200,1000]"
-    parser.add_argument("-P_BG_M", dest = "BG_REDOXDIMRANGE", nargs = "+", type = int, default = [1,2,3,5,10,20,50,100,200,1000], help= help)
      
     # TRUE FALSE control parameters
     parser.add_argument("-PCA", dest = "PCA", action="store_true")

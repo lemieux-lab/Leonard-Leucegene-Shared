@@ -96,10 +96,12 @@ class Data:
         self.x = self._xrp
     
     def generate_RS(self, n):
-        print("Random signature...")
-        col_ids = np.arange(self.x.shape[1])
+        print("Generating Random signature (genes with var > 0.1)...")
+        high_v_cols = self.x.columns[self.x.var() > 0.1]
+        col_ids = np.arange(len(high_v_cols))
         np.random.shuffle(col_ids)
-        self.x = self.x.iloc[:,col_ids[:n]]
+        # assert enough variance
+        self.x = self.x[high_v_cols[:n]]
 
     def generate_SVD(self, n):
         print("Running Singular Value Decomposition SVD ...")
@@ -109,8 +111,17 @@ class Data:
     def shuffle(self):
         self.x = self.x.sample(frac = 1)
         self._reindex_targets()
-        
-    
+
+    def remove_unexpressed_genes(self, verbose = 0):
+        """ removes all genes with no expression across all samples"""
+        d = self.x.shape[1]
+        n_rm = self.x.sum(0) != 0
+        self.x = self.x.loc[:,n_rm]
+        if verbose:
+            print(f"removed {d - n_rm.sum()} genes with null expression across samples ")
+            print(f"Now datataset hase shape {self.x.shape}")
+
+
     def create_shuffles(self, n):
         print(f"Creates {n} data shuffles ...")
         self.shuffles = [self.x.sample(frac =1).index for i in range(n)]
@@ -139,10 +150,10 @@ class Leucegene_Dataset():
         self.NS = self.CF.shape[0]
         print("Loading Gene Expression file ...")
         self._load_ge_tpm() # load in and preprocess Gene Expression file    
-        self._set_data()
+        self._set_data(rm_unexpr = True)
      
     
-    def _set_data(self):
+    def _set_data(self, rm_unexpr = False):
           
         # select cds
         print("Loading and assembling Gene Repertoire...")
@@ -157,6 +168,7 @@ class Leucegene_Dataset():
         self.GE_TRSC_LOG = np.log(self._GE_TPM.T + 1)
         # set CDS data
         cds_data = Data(self.GE_CDS_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_CDS", learning = self.learning)
+        if rm_unexpr :  cds_data.remove_unexpressed_genes(verbose=1)
         # set TRSC data
         trsc_data = Data(self.GE_TRSC_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_TRSC", learning = self.learning) 
         # set LSC17 data
