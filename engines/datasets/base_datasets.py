@@ -145,6 +145,7 @@ class Data:
 class SurvivalGEDataset():
     def __init__(self, cohort) -> None:
         self.COHORT = cohort
+        self.learning = True
         self.gene_repertoire = self.process_gene_repertoire_data()
     
     def process_gene_repertoire_data(self):
@@ -158,27 +159,27 @@ class SurvivalGEDataset():
         return gene_info
     
     def load_dataset(self):
-        if self.cohort == "tcga_target_aml":
+        if self.COHORT == "tcga_target_aml":
             return self.load_tcga_target_aml()
-        elif self.cohort == "lgn_pronostic":
+        elif self.COHORT == "lgn_pronostic":
             return self.load_lgn_pronostic()    
+    
+    def load_lgn_pronostic(self):
+        lgn = Leucegene_Dataset(self.gene_repertoire)
+        self._RAW_COUNTS = lgn._RAW_COUNTS
+        self.CF= lgn._CLIN_INFO
+        self._load_ge_tpm()
+        self._set_data()
+        pdb.set_trace()
     
     def load_tcga_target_aml(self):
         # load tpm counts
         tcga = TCGA_Dataset(self.gene_repertoire)
         self._RAW_COUNTS = tcga._RAW_COUNTS
         self.CF = tcga._CLIN_INFO
-        self._tpm_transform()
-        self._set_data(rm_unexpr=True)
-    
-    def _tpm_transform(self):
-        self._GE_TPM
-        
-    def load_lgn_pronostic(self):
-        lgn = Leucegene_Dataset(self.gene_repertoire, cohort = "pronostic")
-        self._RAW_COUNTS = lgn._RAW_COUNTS
-        self.CF= lgn._CLIN_INFO
-        self._set_data()
+        self.NS = self.CF.shape[0]
+        # self._load_ge_tpm()
+        # self._set_data(rm_unexpr=True)
 
     def _load_ge_tpm(self):
         outfile = f"{self.COHORT}_GE_TRSC_TPM.csv"
@@ -186,7 +187,7 @@ class SurvivalGEDataset():
             self._GE_TPM = pd.read_csv(f"Data/{outfile}", index_col = 0)
         else:
             print(f"TPM normalized Gene Expression (CDS only) file not found in Data/{outfile}\nNow performing tpm norm ...")
-            self._GE_raw_T = self.load_ge_raw().T 
+            self._GE_raw_T = self._RAW_COUNTS.T 
             self._GE_raw_T["featureID_x"] = self._GE_raw_T.index
             self._GE_raw_T["featureID_y"] = self._GE_raw_T["featureID_x"].str.split(".", expand = True)[0].values
             
@@ -222,6 +223,7 @@ class SurvivalGEDataset():
         if rm_unexpr :  cds_data.remove_unexpressed_genes(verbose=1)
         # set TRSC data
         trsc_data = Data(self.GE_TRSC_LOG, self.CF, self.gene_repertoire, name = f"{self.COHORT}_TRSC", learning = self.learning) 
+        pdb.set_trace()
         # set LSC17 data
         lsc17_data = Data(self.get_LSC17(), self.CF ,self.gene_repertoire, name = f"{self.COHORT}_LSC17", learning = self.learning )
         FE_data =  Data(self.get_embedding(), self.CF, self.gene_repertoire, name = f"{self.COHORT}_FE" , learning = self.learning) if self.EMB_FILE else None
@@ -381,15 +383,16 @@ class TCGA_Dataset():
             else : print ('{} Already in data base'.format(row['filename']))
 
 class Leucegene_Dataset():
-    def __init__(self, cohort, learning = True) -> None:
+    def __init__(self, gene_repertoire, learning = True) -> None:
         self._init_CF_files()
-        self.COHORT = cohort
+        self.COHORT = "lgn_pronostic"
         self.learning = learning # for machine learning data processing
         print(f"Loading ClinF {self.COHORT} file ...")
-        self.CF_file = f"Data/lgn_{self.COHORT}_CF"
-        self.CF = pd.read_csv(self.CF_file, index_col = 0)  # load in and preprocess Clinical Features file
-        self.NS = self.CF.shape[0]
-        
+        self.CF_file = f"Data/{self.COHORT}_CF"
+        self._CLIN_INFO = pd.read_csv(self.CF_file, index_col = 0)  # load in and preprocess Clinical Features file
+        self.NS = self._CLIN_INFO.shape[0]
+        self.load_ge_raw()
+
     def _init_CF_files(self):
         infos = pd.read_csv("Data/lgn_ALL_CF", sep = "\t").T
         infos.columns = infos.iloc[0,:] # rename cols
@@ -431,14 +434,12 @@ class Leucegene_Dataset():
         # self.GE_CDS_TPM_LOG.to_csv(f"{outpath}/GE_CDS_TPM_LOG.csv")
         pass
     
-    
-    
     def load_ge_raw(self):
         
-        outfile = f"lgn_{self.COHORT}_GE.assembled.csv"
+        outfile = f"{self.COHORT}_GE.assembled.csv"
         if outfile in os.listdir("Data") :
             print(f"Loading Raw Gene Expression file from {outfile}...")
-            return pd.read_csv(f"Data/{outfile}", index_col = 0)
+            self._RAW_COUNTS = pd.read_csv(f"Data/{outfile}", index_col = 0)
         else : 
             print(f"Gene Expression file not found... in Data/{outfile} \nLoading {self.NS} samples GE readcounts from files ...")
             samples = []
@@ -448,4 +449,4 @@ class Leucegene_Dataset():
             df = pd.concat(samples)
             print(f"writing to Data/{outfile} ...")
             df.to_csv(f"Data/{outfile}")
-            return df 
+            self._RAW_COUNTS = df 
