@@ -1,6 +1,6 @@
 # custom
 from re import I
-from engines.datasets.base_datasets import Leucegene_Dataset
+from engines.datasets.base_datasets import SurvivalGEDataset
 import engines.datasets.FE_datasets as FE_Datasets
 import engines.models.functions as functions 
 import engines.models.dimredox_models as models
@@ -41,36 +41,15 @@ class Engine:
         # HARDCODE
         self.NFOLDS = 5
         self.INT_NFOLDS = 5
-        self._init_CF_files()
         self._load_datasets()
         # HARDCODE
         self.OUTDIR = utils.assert_mkdir(self.OUTPATH)
         self.OUTFILE = os.path.join(self.OUTDIR, f"bg_m_{self.INPUT_DIMS}_{datetime.now()}_table.csv")
-    def _init_CF_files(self):
-        infos = pd.read_csv("Data/lgn_ALL_CF", sep = "\t").T
-        infos.columns = infos.iloc[0,:] # rename cols
-        infos = infos.iloc[1:,:] # remove 1st row
-        features = ["Prognostic subset", "Age_at_diagnosis", 
-        "Sex", "Induction_Type",
-        'HSCT_Status_Type' ,'Cytogenetic risk', 
-        'FAB classification','Tissue', 
-        'RNASEQ_protocol',"IDH1-R132 mutation" ,
-        "Relapse",'FLT3-ITD mutation', 
-        "WHO classification", "NPM1 mutation", 
-        "Overall_Survival_Time_days", "Overall_Survival_Status",
-        "Cytogenetic group"] # select features
-        infos = infos[features]
-        for cohort in ["lgn_public", "lgn_pronostic"]:
-            samples = pd.read_csv(f"Data/{cohort}_samples", index_col = 0)
-            CF_file = infos.merge(samples, left_index = True, right_on = "sampleID")
-            CF_file.index = CF_file.sampleID
-            CF_file = CF_file[np.setdiff1d(CF_file.columns, ["sampleID"])]
-            CF_file.to_csv(f"Data/{cohort}_CF")
-
+    
     def _load_datasets(self):
         ds = []
         for cohort in self.COHORTS:
-            ds.append([cohort, Leucegene_Dataset(cohort = cohort, embedding_file = self.EMB_FILE)])
+            ds.append([cohort, SurvivalGEDataset().load_dataset(cohort)])
         self.datasets = dict(ds)
 
     def run_visualisations(self):

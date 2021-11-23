@@ -6,7 +6,7 @@ def parse_arguments():
     # add control arguments
     parser.add_argument("-O", dest = "OUTPATH", type = str, default = "RES/current/", help = "generated output filepath, (will override existing)")
     parser.add_argument("-d", dest = "debug", action="store_true", help = "debug")
-    parser.add_argument("-C", dest = "COHORTS", nargs = "+", type = str, default = ["public", "pronostic"], help = "public: \tThe Leucegene public subset = 403 samples. Curated samples subset to complete different feature prediction on.\n pronostic: The Leucegene pronostic subset = 300 samples. Curated samples subset that was selected to perform survival analysis on. ")
+    parser.add_argument("-C", dest = "COHORTS", nargs = "+", type = str, default = ["tcga_target_aml", "lgn_pronostic"], help = "public: \tThe Leucegene public subset = 403 samples. Curated samples subset to complete different feature prediction on.\n pronostic: The Leucegene pronostic subset = 300 samples. Curated samples subset that was selected to perform survival analysis on. ")
     parser.add_argument("-W", dest = "WIDTHS", nargs = "+", type = str,  default = ["CDS", "TRSC"], help = "Dimensionality of input features space. \n CDS: Small transcriptome ~= 19,500 variables \nTRSC: Full transcriptome ~= 54,500 transcripts. Can put as many jobs in this queue. Jobs will be done sequentially" )
     parser.add_argument("-N_TSNE", dest = "N_TSNE", type = int,  default = 1, help = "Number of T-SNE replicates done if TSNE selected. To check reproducibility." )
     parser.add_argument("-MAX_PC", dest = "MAX_PC", type = int,  default = 10, help = "Number of PC to be analysed (GO enrichment, figures)" )
