@@ -49,7 +49,7 @@ class Engine:
     def _load_datasets(self):
         ds = []
         for cohort in self.COHORTS:
-            ds.append([cohort, SurvivalGEDataset().load_dataset(cohort)])
+            ds.append([cohort, SurvivalGEDataset(cohort).load_dataset()])
         self.datasets = dict(ds)
 
     def run_visualisations(self):

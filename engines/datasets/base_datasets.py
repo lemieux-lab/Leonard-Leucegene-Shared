@@ -1,5 +1,6 @@
 from operator import xor
 from re import I
+import gzip
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -142,7 +143,8 @@ class Data:
         self.x = self.x.loc[self.y.index]
 
 class SurvivalGEDataset():
-    def __init__(self) -> None:
+    def __init__(self, cohort) -> None:
+        self.COHORT = cohort
         self.gene_repertoire = self.process_gene_repertoire_data()
     
     def process_gene_repertoire_data(self):
@@ -155,31 +157,97 @@ class SurvivalGEDataset():
         gene_info = Gencode37.merge(Ensembl99, on = "SYMBOL") 
         return gene_info
     
-    def load_dataset(self,cohort):
-        if cohort == "tcga_target_aml":
+    def load_dataset(self):
+        if self.cohort == "tcga_target_aml":
             return self.load_tcga_target_aml()
-        elif cohort == "lgn_pronostic":
+        elif self.cohort == "lgn_pronostic":
             return self.load_lgn_pronostic()    
     
     def load_tcga_target_aml(self):
+        # load tpm counts
         tcga = TCGA_Dataset(self.gene_repertoire)
-        return tcga
-
+        self._RAW_COUNTS = tcga._RAW_COUNTS
+        self.CF = tcga._CLIN_INFO
+        self._tpm_transform()
+        self._set_data(rm_unexpr=True)
+    
+    def _tpm_transform(self):
+        self._GE_TPM
+        
     def load_lgn_pronostic(self):
         lgn = Leucegene_Dataset(self.gene_repertoire, cohort = "pronostic")
-        return lgn
+        self._RAW_COUNTS = lgn._RAW_COUNTS
+        self.CF= lgn._CLIN_INFO
+        self._set_data()
 
+    def _load_ge_tpm(self):
+        outfile = f"{self.COHORT}_GE_TRSC_TPM.csv"
+        if outfile in os.listdir("Data") :
+            self._GE_TPM = pd.read_csv(f"Data/{outfile}", index_col = 0)
+        else:
+            print(f"TPM normalized Gene Expression (CDS only) file not found in Data/{outfile}\nNow performing tpm norm ...")
+            self._GE_raw_T = self.load_ge_raw().T 
+            self._GE_raw_T["featureID_x"] = self._GE_raw_T.index
+            self._GE_raw_T["featureID_y"] = self._GE_raw_T["featureID_x"].str.split(".", expand = True)[0].values
+            
+            print("Processing TPM computation...")
+            # get gene infos
+            gene_info = self.process_gene_repertoire_data()
+            self._GE = self._GE_raw_T.merge(gene_info, on = "featureID_y") 
+            gene_lengths = np.matrix(self._GE["gene.length_x"]).T / 1000 # get gene lengths in KB
+            # tpm norm
+            GE_RPK = self._GE.iloc[:,:self.NS].astype(float) / gene_lengths 
+            per_million = GE_RPK.sum(0) / 1e6
+            self._GE_TPM =  GE_RPK / per_million 
+            # clean up 
+            self._GE_TPM.index = self._GE.featureID_y
+            # write to file 
+            print(f"Writing to Data/{outfile}...")
+            self._GE_TPM.to_csv(f"Data/{outfile}")
+
+    def _set_data(self, rm_unexpr = False):
+          
+        # select cds
+        print("Loading and assembling Gene Repertoire...")
+        ### select based on repertoire
+        # filtering if needed, merge with GE data  
+        self._GE_CDS_TPM = self._GE_TPM.merge(self.gene_repertoire[self.gene_repertoire["gene_biotype_y"] == "protein_coding"], left_index = True, right_on = "featureID_y")
+        # clean up
+        self._GE_CDS_TPM.index = self._GE_CDS_TPM.SYMBOL
+        self._GE_CDS_TPM = (self._GE_CDS_TPM.iloc[:,:-self.gene_repertoire.shape[1]]).T
+        self.GE_CDS_LOG = np.log(self._GE_CDS_TPM + 1)
+        self.GE_TRSC_LOG = np.log(self._GE_TPM.T + 1)
+        # set CDS data
+        cds_data = Data(self.GE_CDS_LOG, self.CF, self.gene_repertoire, name = f"{self.COHORT}_CDS", learning = self.learning)
+        if rm_unexpr :  cds_data.remove_unexpressed_genes(verbose=1)
+        # set TRSC data
+        trsc_data = Data(self.GE_TRSC_LOG, self.CF, self.gene_repertoire, name = f"{self.COHORT}_TRSC", learning = self.learning) 
+        # set LSC17 data
+        lsc17_data = Data(self.get_LSC17(), self.CF ,self.gene_repertoire, name = f"{self.COHORT}_LSC17", learning = self.learning )
+        FE_data =  Data(self.get_embedding(), self.CF, self.gene_repertoire, name = f"{self.COHORT}_FE" , learning = self.learning) if self.EMB_FILE else None
+        self.data = {"CDS": cds_data, "TRSC": trsc_data, "LSC17":lsc17_data, "FE": FE_data}
+    
 class TCGA_Dataset():
     def __init__(self, gene_repertoire):
+        # setup paths
         self.data_path = "Data"
         self.tcga_data_path = os.path.join(self.data_path, "TCGATARGETAML")
         self.tcga_manifests_path = os.path.join(self.tcga_data_path, "MANIFESTS")
         self.tcga_counts_path = os.path.join(self.tcga_data_path, "COUNTS")
         self.tcga_cd_path  = os.path.join(self.tcga_data_path, "CLINICAL")
-        
-        self.data = self.assemble_load_tcga_data()
+        # store the gene repertoire
         self.gene_repertoire = gene_repertoire
-
+        # load and merge tcga survival and gene expressio database
+        self.data = self.fetch_data()
+    
+    def fetch_data(self):
+        if "TCGA_GE.assembled.csv" not in os.listdir(self.tcga_data_path):
+            self.assemble_load_tcga_data()
+        else: 
+            print("TCGA loading data matrices ...")
+            self._RAW_COUNTS = pd.read_csv(os.path.join(self.tcga_data_path, "TCGA_GE.assembled.csv"))
+            self._CLIN_INFO = pd.read_csv(os.path.join(self.tcga_data_path, "TCGA_CF.assembled.csv"))
+    
     def assemble_load_tcga_data(self):
         ## FETCH GENE EXPRESSIONS ##
         GE_manifest_file = os.path.join(self.tcga_manifests_path, 'gdc_manifest.2020-07-23_GE.txt')
@@ -197,42 +265,44 @@ class TCGA_Dataset():
         CD_tcga_profile = self.parse_clinical_xml_files()
         print ('OUT Assembled TCGA clinical data')
         # select target-aml most up to date clinical file 
-        CD_target_filename = os.path.join(self.tcga_cd_path, os.listdir(self.tcga_cd_path)[-1])
-        CD_target_profile = pd.read_excel(CD_target_filename)
+        CD_target_profile = pd.read_excel(os.path.join(self.tcga_cd_path, "TARGET_AML_ClinicalData_Validation_20181213.xlsx"), engine='openpyxl') 
         print ('OUT Assembled TARGET clinical data')
-        pdb.set_trace()
         
         ## GET TARGET to CASE ID FILE ##
-        filepath = os.path.join('Data', 'TCGATARGETAML', 'filename_to_caseID.csv')
+        filepath = os.path.join(self.tcga_data_path, 'filename_to_caseID.csv')
         fileuuid_caseuuid = pd.read_csv(filepath) 
         
         ## MERGE TARGET + TCGA CLINICAL FEATURES ##
-        tcga_target_clinical_features = merge_tcga_target_clinical_features(CD_tcga_profile, CD_target_profile)
+        tcga_target_clinical_features = self.merge_tcga_target_clinical_features(CD_tcga_profile, CD_target_profile)
         info_data = tcga_target_clinical_features.merge(fileuuid_caseuuid)
         # process filenames for easier fetching
-        info_data['filepath'] = [os.path.join(GE_tcga_path,  filename_x) for filename_x in info_data.filename_x]
+        info_data['filepath'] = [os.path.join(self.tcga_counts_path,  filename_x) for filename_x in info_data.filename_x]
         # add a dataset tag
-        info_data['dataset'] = 'C'
+        info_data['dataset'] = 'TCGA'
         info_data['sequencer'] = 'Hi-seq'
         # select proper columns
         info_data = info_data[['TARGET USI', 'submitter_id', 'filepath','dataset', 'sequencer', 'Gender', 'Risk group', 'FLT3/ITD positive?', 'NPM mutation','Induction_Type', 'Overall Survival Time in Days', 'Vital Status']]
-
         print("OUT Merged TCGA and TARGET clinical features")
 
         ## ASSEMBLE GE PROFILES FROM REPERTOIRE ##
         # unzip and merge files 
-        import gzip
+        
         # relabel repertoire column , store into matrix
-        gene_repertoire['ensmbl_id'] = [g.split(".")[0] for g in gene_repertoire.gene_id]
-        count_matrix = gene_repertoire[['ensmbl_id', 'Name', 'Category']]
-        for i,r in info_data.iterrows() :
+        self.gene_repertoire['ensmbl_id'] = [g.split(".")[0] for g in self.gene_repertoire.featureID_x]
+        count_matrix = self.gene_repertoire[['ensmbl_id', 'SYMBOL', 'gene_biotype_y', "gene.length_x"]]
+        for i,r in tqdm(info_data.iterrows()) :
             if i % 10 == 0 : print('OUT Assembled TCGA + TARGET (C) {} / {} HT-Seq data'.format(i, info_data.shape[0] ))
             filename =  r['filepath']
             GE_profile = pd.read_csv(filename, sep = '\t', names = ['ensmbl_id', r['TARGET USI']])
             GE_profile['ensmbl_id'] = [e.split('.')[0] for e in GE_profile.ensmbl_id]
             count_matrix = count_matrix.merge(GE_profile, on = 'ensmbl_id') 
         print('OUT finished assembling TCGA + TARGET raw COUNT matrix of {} with {} samples'.format(count_matrix.shape[0], i + 1)) 
-        return {'count_matrix': count_matrix, 'info_data' : info_data, 'gene_info': gene_repertoire} 
+        self._RAW_COUNTS = count_matrix
+        self._CLIN_INFO = info_data
+        # writing to files 
+        print("writing to files ... ")
+        self._RAW_COUNTS.to_csv(os.path.join(self.tcga_data_path, "TCGA_GE.assembled.csv"))
+        self._CLIN_INFO.to_csv(os.path.join(self.tcga_data_path, "TCGA_CF.assembled.csv"))
  
     def assert_load_from_manifest(self, manifest_file, tcga_path):
         """ 
@@ -269,7 +339,7 @@ class TCGA_Dataset():
         clinical_data = pd.DataFrame(clinical_data_matrix, columns = header_array)
         return clinical_data
 
-    def merge_tcga_target_clinical_features(CD_tcga_profile, CD_target_profile):
+    def merge_tcga_target_clinical_features(self, CD_tcga_profile, CD_target_profile):
         target_features = ['TARGET USI', 'Gender', 'FLT3/ITD positive?', 'NPM mutation', 'Overall Survival Time in Days', 'Vital Status', 'Risk group']
         target = CD_target_profile[target_features]
         tcga_features = ['bcr_patient_barcode','gender', 'FLT3 Mutation Positive', 'NPMc Positive', 'days_to_death', 'vital_status']
@@ -285,57 +355,10 @@ class TCGA_Dataset():
         tcga_target_clinical_features['Induction_Type'] = 'unknown'
         # rename columns 
         return tcga_target_clinical_features 
-
     
-    def assemble_merge_leucegene_GE(info_data, gene_repertoire):
-        count_matrix = gene_repertoire[['ensmbl_id', 'Name', 'Category']]
-        # add a dataset tag
-        info_data['dataset'] = 'B'
-        info_data['dataset'][info_data['RNASEQ_protocol'] == 'stranded'] = "A"
-        info_data.sort_values(by = ['dataset'], inplace = True, ignore_index=True) 
-        for i,r in info_data.iterrows() :
-            if i % 10 == 0 : 
-                print('OUT Assembled LEUCEGENE ({} - {})  {} / {} HT-Seq data'.format(r['dataset'], r['RNASEQ_protocol'] ,i, info_data.shape[0] ))
-            filename =  os.path.join(r['star_path'], 'ReadsPerGene.out.tab')
-            if os.path.exists(filename) : 
-                GE_raw_count = pd.read_csv(filename, sep = '\t', names = ['gene_id', '+', '-', 'all'])
-                GE_raw_count['ensmbl_id'] = [e.split('.')[0] for e in GE_raw_count.gene_id]
-                GE_raw_count = GE_raw_count[['ensmbl_id', 'all']]
-                GE_raw_count.columns = ['ensmbl_id', 'LGN-' + r['Genomic_Project_ID'] + '-' + r['sampleID']]
-                GE_raw_count = GE_raw_count.groupby('ensmbl_id').sum()
-                count_matrix = count_matrix.join(GE_raw_count, on = 'ensmbl_id', how = 'inner')  
-            else: print ('{} doesnt exist !'.format(filename))
-        print('OUT finished assembling LEUCEGENE raw COUNT matrix of {} with {} samples'.format(count_matrix.shape[0], i + 1)) 
-        return count_matrix, gene_repertoire 
-
-    def load_leucegene_data(gene_repertoire):
-        # set a number of static variables
-        data_path = os.path.join('Data/LEUCEGENE')
-        
-        ## LOAD and PROCESS CLINICAL features data ##
-        info_path = os.path.join(data_path, 'API_getTable_86ad88.xls') # clinical features  
-        features_list = ['Genomic_Project_ID', 'RNASEQ_protocol', 'Sex', 'Cytogenetic risk',  'FLT3-ITD mutation','NPM1 mutation', 'Induction_Type', 'Overall_Survival_Time_days', 'Overall_Survival_Status']
-        info_data = pd.read_csv(info_path, sep = '\t').T
-        info_data = process_info_data(info_data, features_list)
-        ## ASSEMBLE and MERGE GENE EXPRESSIONS IN A COUNT MATRIX ##
-        count_matrix, gene_info = assemble_merge_leucegene_GE(info_data, gene_repertoire)
-        # exp_data, info_data , gene_info = load_data(exp_path, info_path)
-        return {'count_matrix' : count_matrix, 'info_data': info_data, 'gene_info': gene_info}
-
-    def assemble_merge_tcga_leucegene():
-        gene_repertoire = process_gene_repertoire_data(pd.read_csv('Data/LEUCEGENE/gene_repertoire_1.csv', sep = '\t'))
-        leucegene = load_leucegene_data(gene_repertoire) # datasets A(stranded), B(n-stranded)
-        tcga = assemble_load_tcga_data(leucegene['gene_info']) # dataset C(n-stranded)
-        assert_mkdir('SETS')
-        leucegene['count_matrix'].to_csv('SETS/leucegene_AB_ge_counts.csv')
-        leucegene['info_data'].to_csv('SETS/leucegene_AB_clinical_features.csv')
-        tcga['count_matrix'].to_csv('SETS/tcga_C_ge_counts.csv')
-        tcga['info_data'].to_csv('SETS/tcga_C_clinical_features.csv')
-        return leucegene, tcga
-    
-    def load_tcga_aml(manifest_file, target_dir = "OUT"):
+    def load_tcga_aml(self, manifest_file, target_dir = "OUT"): #### TO BE UPDATED!
         # target directory
-        assert_mkdir(target_dir)
+        utils.assert_mkdir(target_dir)
         # import manifest
         manifest = pd.read_csv(manifest_file, sep = '\t')
         # cycle through filenames
@@ -366,10 +389,7 @@ class Leucegene_Dataset():
         self.CF_file = f"Data/lgn_{self.COHORT}_CF"
         self.CF = pd.read_csv(self.CF_file, index_col = 0)  # load in and preprocess Clinical Features file
         self.NS = self.CF.shape[0]
-        print("Loading Gene Expression file ...")
-        self._load_ge_tpm() # load in and preprocess Gene Expression file    
-        self._set_data(rm_unexpr = True)     
-    
+        
     def _init_CF_files(self):
         infos = pd.read_csv("Data/lgn_ALL_CF", sep = "\t").T
         infos.columns = infos.iloc[0,:] # rename cols
@@ -391,29 +411,7 @@ class Leucegene_Dataset():
             CF_file = CF_file[np.setdiff1d(CF_file.columns, ["sampleID"])]
             CF_file.to_csv(f"Data/{cohort}_CF")
 
-    def _set_data(self, rm_unexpr = False):
-          
-        # select cds
-        print("Loading and assembling Gene Repertoire...")
-        self.gene_info = self.process_gene_repertoire_data() 
-        ### select based on repertoire
-        # filtering if needed, merge with GE data  
-        self._GE_CDS_TPM = self._GE_TPM.merge(self.gene_info[self.gene_info["gene_biotype_y"] == "protein_coding"], left_index = True, right_on = "featureID_y")
-        # clean up
-        self._GE_CDS_TPM.index = self._GE_CDS_TPM.SYMBOL
-        self._GE_CDS_TPM = (self._GE_CDS_TPM.iloc[:,:-self.gene_info.shape[1]]).T
-        self.GE_CDS_LOG = np.log(self._GE_CDS_TPM + 1)
-        self.GE_TRSC_LOG = np.log(self._GE_TPM.T + 1)
-        # set CDS data
-        cds_data = Data(self.GE_CDS_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_CDS", learning = self.learning)
-        if rm_unexpr :  cds_data.remove_unexpressed_genes(verbose=1)
-        # set TRSC data
-        trsc_data = Data(self.GE_TRSC_LOG, self.CF, self.gene_info, name = f"{self.COHORT}_TRSC", learning = self.learning) 
-        # set LSC17 data
-        lsc17_data = Data(self.get_LSC17(), self.CF ,self.gene_info, name = f"{self.COHORT}_LSC17", learning = self.learning )
-        FE_data =  Data(self.get_embedding(), self.CF, self.gene_info, name = f"{self.COHORT}_FE" , learning = self.learning) if self.EMB_FILE else None
-        self.data = {"CDS": cds_data, "TRSC": trsc_data, "LSC17":lsc17_data, "FE": FE_data}
-    
+   
     def get_embedding(self):
         print("Fetching embedding file...")
         if self.EMB_FILE.split(".")[-1] == "npy":
@@ -432,39 +430,8 @@ class Leucegene_Dataset():
     def dump_infos(self, outpath):
         # self.GE_CDS_TPM_LOG.to_csv(f"{outpath}/GE_CDS_TPM_LOG.csv")
         pass
-    def process_gene_repertoire_data(self):
-        # load in Gencode 37 repertoire (NOTE: no biotype present !!) 
-        Gencode37 = pd.read_csv("/u/leucegene/data/Homo_sapiens.GRCh38_H32/annotations/Homo_sapiens.GRCh38.Gencode37.genes.tsv", sep = "\t")
-        # load in Esembl99 repertoire (NOTE: ensembl id incomplete (no version id))
-        Ensembl99 = pd.read_csv("/u/leucegene/data/Homo_sapiens.GRCh38_H32/annotations/Homo_sapiens.GRCh38.Ensembl99.genes.tsv", sep = "\t")
-        # extract gene infos and store
-        gene_info = Gencode37.merge(Ensembl99, on = "SYMBOL") 
-        return gene_info
     
-    def _load_ge_tpm(self):
-        outfile = f"lgn_{self.COHORT}_GE_TRSC_TPM.csv"
-        if outfile in os.listdir("Data") :
-            self._GE_TPM = pd.read_csv(f"Data/{outfile}", index_col = 0)
-        else:
-            print(f"TPM normalized Gene Expression (CDS only) file not found in Data/{outfile}\nNow performing tpm norm ...")
-            self._GE_raw_T = self.load_ge_raw().T 
-            self._GE_raw_T["featureID_x"] = self._GE_raw_T.index
-            self._GE_raw_T["featureID_y"] = self._GE_raw_T["featureID_x"].str.split(".", expand = True)[0].values
-            
-            print("Processing TPM computation...")
-            # get gene infos
-            gene_info = self.process_gene_repertoire_data()
-            self._GE = self._GE_raw_T.merge(gene_info, on = "featureID_y") 
-            gene_lengths = np.matrix(self._GE["gene.length_x"]).T / 1000 # get gene lengths in KB
-            # tpm norm
-            GE_RPK = self._GE.iloc[:,:self.NS].astype(float) / gene_lengths 
-            per_million = GE_RPK.sum(0) / 1e6
-            self._GE_TPM =  GE_RPK / per_million 
-            # clean up 
-            self._GE_TPM.index = self._GE.featureID_y
-            # write to file 
-            print(f"Writing to Data/{outfile}...")
-            self._GE_TPM.to_csv(f"Data/{outfile}")
+    
     
     def load_ge_raw(self):
         
