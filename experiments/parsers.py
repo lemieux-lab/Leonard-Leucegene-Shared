@@ -15,8 +15,9 @@ def parse_arguments():
     parser.add_argument("-M", dest = "MODEL_TYPES", type = str, nargs = "+", default = ["CPH"], help= "list of models to perform survival modelling.")
     parser.add_argument("-N_OPTIM", dest = "NREP_OPTIM", default = 1, type = int, help = "number of optimizations for Hyper parameters")
     parser.add_argument("-N_REP", dest = "NREP_TECHN", default = 10, type = int, help = "number of technical replicates") 
+    parser.add_argument("-N_FOLDS", dest = "NFOLDS", default = 5, type = int, help = "number of crossvalidation folds") 
     parser.add_argument("-E", dest = "NEPOCHS", default = 1, type = int, help = "number of epochs for optim of DNN models")
-    parser.add_argument("-IN_D", dest = "INPUT_DIMS", default = 17, type = int, help = " number of input dimensions to test in models")
+    parser.add_argument("-IN_D", dest = "INPUT_DIMS", default = [17,18], type = int, nargs = "+", help = "range of number of input dimensions to test (min,max) default= [17,18]")
     # for the input projection types
     help = "list of projection types for survival prediction and further analyses default = [PCA, SVD, LSC17, RPgauss, RPsparse, RSelect]"
     parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse", "RSelect"], help= help)
