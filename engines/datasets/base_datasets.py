@@ -165,7 +165,7 @@ class SurvivalGEDataset():
         # load 
         DS = picker[cohort](self.gene_repertoire)
         DS.load()
-        self._set_data(DS)
+        self._set_data(DS, rm_unexpr=True)
         return self.data
     
 
@@ -173,9 +173,7 @@ class SurvivalGEDataset():
         self._GE_TPM = DS._GE_TPM
         self.CF = DS._CLIN_INFO
         self.COHORT = DS.COHORT
-        pdb.set_trace()
         # select cds
-        print("Loading and assembling Gene Repertoire...")
         ### select based on repertoire
         # filtering if needed, merge with GE data  
         self._GE_CDS_TPM = self._GE_TPM.merge(self.gene_repertoire[self.gene_repertoire["gene_biotype_y"] == "protein_coding"], left_index = True, right_on = "featureID_y")
@@ -261,7 +259,12 @@ class TCGA_Dataset():
             # select proper columns
             self._CLIN_INFO_RAW = info_data[['TARGET USI', 'submitter_id', 'filepath','dataset', 'sequencer', 'Gender', 'Risk group', 'FLT3/ITD positive?', 'NPM mutation','Induction_Type', 'Overall Survival Time in Days', 'Vital Status']]
             print("OUT Merged TCGA and TARGET clinical features")
+            # remove duplicates 
+            counts = self._CLIN_INFO_RAW.groupby("TARGET USI").count()
+            duplicates = counts.index[counts["filepath"] > 1]
+            self._CLIN_INFO_RAW = self._CLIN_INFO_RAW[~self._CLIN_INFO_RAW["TARGET USI"].isin(duplicates)]
             self._CLIN_INFO_RAW.to_csv(os.path.join(self.tcga_data_path, "TCGA_CF.assembled.csv"))
+        
         # preprocess clinical info file
         self._CLIN_INFO_RAW.columns = ['TARGET USI', 'submitter_id', 'filepath','dataset', 'sequencer', 'Gender', 'Risk group', 'FLT3/ITD positive?', 'NPM mutation','Induction_Type', 'Overall_Survival_Time_days', 'Overall_Survival_Status']
         # format censorship state 
@@ -278,10 +281,11 @@ class TCGA_Dataset():
         # retriteves tpm transformed expression data 
         self._compute_tpm()
         # make sure all the ids in CF file and GE files are the same!
-        common_ids = np.intersect1d(self._GE_TPM.index, self._CLIN_INFO["TARGET USI"])
-        pdb.set_trace()
-        self._GE_TPM = self._GE_TPM.loc[common_ids]
+        common_ids = np.intersect1d(self._GE_TPM.columns, self._CLIN_INFO["TARGET USI"])
+        self._GE_TPM = self._GE_TPM[common_ids]
         self._CLIN_INFO = self._CLIN_INFO[self._CLIN_INFO["TARGET USI"].isin(common_ids)]
+        self._CLIN_INFO.index = self._CLIN_INFO["TARGET USI"]
+        self._CLIN_INFO = self._CLIN_INFO.loc[self._GE_TPM.columns]
     
     def _compute_tpm(self):
         # computes tpm from raw matrix, if already computed, just load
@@ -302,6 +306,7 @@ class TCGA_Dataset():
             # clean up 
             self._GE_TPM.columns = self._RAW_COUNTS.ensmbl_id 
             self._GE_TPM.index = self._RAW_COUNTS.columns[5:]
+            self._GE_TPM = self._GE_TPM.T 
             # write to file 
             print(f"Writing to Data/{outfile}...")
             self._GE_TPM.to_csv(f"Data/{outfile}")
@@ -326,6 +331,7 @@ class TCGA_Dataset():
         # relabel repertoire column , store into matrix
         self.gene_repertoire['ensmbl_id'] = [g.split(".")[0] for g in self.gene_repertoire.featureID_x]
         count_matrix = self.gene_repertoire[['ensmbl_id', 'SYMBOL', 'gene_biotype_y', "gene.length_x"]]
+
         for i,r in self._CLIN_INFO.iterrows():
             if i % 10 == 0 : print('OUT Assembled TCGA + TARGET (C) {} / {} HT-Seq data'.format(i, self._CLIN_INFO.shape[0] ))
             filename =  r['filepath']
