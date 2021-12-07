@@ -12,8 +12,8 @@ class ExperimentLoader:
         from experiments.exp_1 import v_4 as exp_1_4
         from experiments.plots_1 import v_0 as plot_1_0
         self.experiment_dict = {
-            "e1": exp_1_4,
-            "e1.4": exp_1_4,
+            "1": exp_1_4,
+            "1.4": exp_1_4,
             "p1": plot_1_0
         }
     def load_experiment(self, exp_vn):
