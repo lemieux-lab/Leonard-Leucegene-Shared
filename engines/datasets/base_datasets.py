@@ -1,5 +1,5 @@
 from operator import xor
-from re import I
+from re import I, L
 import gzip
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ from sklearn import random_projection
 import torch
 from engines import utils
 import xml.etree.ElementTree as ET
-
+from sklearn.preprocessing import LabelBinarizer
 class Data:
     def __init__(self,x, y ,gene_info, name = "data", reindex = True, device = "cpu", learning = True) -> None:
         self.name = name
@@ -168,10 +168,25 @@ class SurvivalGEDataset():
         self._set_data(DS, rm_unexpr=True)
         return self.data
     
+    def _binarize_clin_infos(self, features, bin_features):
+        binf = self.CF[features] 
+        ret_df = pd.DataFrame(binf["Age_at_diagnosis"])
+        for feature in bin_features:
+            lb = LabelBinarizer()
+            bin = lb.fit_transform(binf[feature])
+            if bin.shape[1] == 1:
+                bin = np.hstack((bin, 1 - bin))
+                bin_labels = pd.DataFrame(bin, columns = [f"{feature}_{c}" for c in lb.classes_], index = binf.index)
+            else: bin_labels = pd.DataFrame(bin, columns = lb.classes_, index = binf.index)
+            ret_df = ret_df.merge(bin_labels,  left_index = True, right_index = True)
+        self.CF_bin = ret_df
 
     def _set_data(self, DS, rm_unexpr = False):
         self._GE_TPM = DS._GE_TPM
         self.CF = DS._CLIN_INFO
+        features = ["Cytogenetic risk", "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation","Age_at_diagnosis", "Sex"]
+        bin_features = ["Cytogenetic risk", "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation", "Sex"]
+        self._binarize_clin_infos(features, bin_features)
         self.COHORT = DS.COHORT
         # select cds
         ### select based on repertoire
@@ -190,7 +205,7 @@ class SurvivalGEDataset():
         # set LSC17 data
         lsc17_data = Data(self._get_LSC17(), self.CF ,self.gene_repertoire, name = f"{self.COHORT}_LSC17", learning = self.learning )
         # set the data dict
-        self.data = {"cohort": self.COHORT,"CDS": cds_data, "TRSC": trsc_data, "LSC17": lsc17_data} #, "LSC17":lsc17_data, "FE": FE_data}
+        self.data = {"cohort": self.COHORT,"CDS": cds_data, "TRSC": trsc_data, "LSC17": lsc17_data, "CF": self.CF, "CF_bin": self.CF_bin} #, "LSC17":lsc17_data, "FE": FE_data}
     
     def _get_LSC17(self):
         if f"LSC17_{self.COHORT}_expressions.csv" in os.listdir("Data/SIGNATURES"):
