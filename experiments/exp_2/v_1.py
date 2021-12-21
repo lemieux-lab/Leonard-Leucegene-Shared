@@ -27,11 +27,11 @@ def get_summary_table_cf(cohort_data):
     # group by therapy
     # binarize
     # dump 
-    d = cohort_data["CF_bin"]
-    stats = pd.DataFrame(d.min(0), columns = ["min"]).merge(
-            pd.DataFrame(d.max(0), columns = ["max"]), right_index = True, left_index=True).merge(
-            pd.DataFrame(d.mean(0), columns = ["mean"]), right_index = True, left_index=True).merge(
-            pd.DataFrame(d.median(0), columns = ["median"]), right_index = True, left_index=True)
+    data = cohort_data["CF_bin"]
+    stats = pd.DataFrame(data.min(0), columns = ["min"]).merge(
+            pd.DataFrame(data.max(0), columns = ["max"]), right_index = True, left_index=True).merge(
+            pd.DataFrame(data.mean(0), columns = ["mean"]), right_index = True, left_index=True).merge(
+            pd.DataFrame(data.median(0), columns = ["median"]), right_index = True, left_index=True)
     return stats
 
 def get_pca_lsc17_corr_to_cf(cohort_data):
@@ -154,6 +154,32 @@ def boxplots(benchmark):
     axes[0].set_ylim([0.5, 0.75])
     return axes
 
+def barplots(tbl):
+    plt.figure()
+    features_to_plot = ["adverse cytogenetics", "favorable cytogenetics", "intermediate cytogenetics", "NPM1 mutation_1.0", "IDH1-R132 mutation_1.0", "FLT3-ITD mutation_1", "Sex_F", "Sex_M"]
+    dat = tbl.loc[features_to_plot]["mean"]
+    dat.index = ["adv cyt", "fav cyt", "int cyt", "NPM1", "IDH1", "FLT3-ITD", "Females", "Males"]
+    ax = dat.plot.bar(rot = 45)
+    return ax 
+
+def heatmap(tbl):
+    tbl.index = tbl['PC']
+    # filter columns
+    columns = ['Age_at_diagnosis', 'adverse cytogenetics', 'favorable cytogenetics', 'intermediate cytogenetics','NPM1 mutation_1.0', 'IDH1-R132 mutation_1.0', 'FLT3-ITD mutation_1', 'Sex_F']
+    dat = tbl[columns].iloc[::-1]
+    fig, ax = plt.subplots(figsize = (12,12))
+    im = ax.pcolor(abs(dat), vmin = 0, vmax = 1, cmap=plt.cm.Blues)
+    for (i, j), z in np.ndenumerate(dat):
+        ax.text(j + 0.5, i + 0.5, '{:0.2f}'.format(z), ha='center', va='center')
+
+    ax.set_yticklabels(dat.index)
+    ax.set_xticks(np.arange(dat.shape[1]) + 0.5, minor=False)
+    ax.set_yticks(np.arange(dat.shape[0]) + 0.5, minor=False)
+    ax.xaxis.tick_top()
+    ax.set_xticklabels(dat.columns, rotation = 45)
+    fig.colorbar(im)
+    return ax
+
 def run(args):
     
     for cohort in args.COHORTS:
@@ -164,18 +190,28 @@ def run(args):
         print("done")
 
         outfile = os.path.join(basepath, f"summary_table_cf_{cohort}.csv" )
-        print(f"Action 2: Printing summary data table of clinical infos. --> {outfile}")
-        get_summary_table_cf(cohort_data).to_csv(outfile)
+        fig_outfile =  os.path.join(basepath, f"summary_table_cf_{cohort}.svg")
+        print(f"Action 2: Printing summary data table of clinical infos. --> {outfile, fig_outfile}")
+        table = get_summary_table_cf(cohort_data)
+        table.to_csv(outfile)
+        axes = barplots(table)
+        axes.set_ylim([0,1])
+        plt.savefig(fig_outfile)
         # bar plots of clinical features occ. --> barplot_cf.svg
         print("done") 
 
         print(f"Action 3: Corr PCA to clinical features to CF. {outfile}")
         outfile =os.path.join(basepath, f"corr_pca_cf_{cohort}.csv" )   
-        get_pca_lsc17_corr_to_cf(cohort_data).to_csv(outfile)
+        fig_outfile =os.path.join(basepath, f"corr_pca_cf_{cohort}_heatmap.svg" )
+        pca_corr_to_cf = get_pca_lsc17_corr_to_cf(cohort_data)
+        pca_corr_to_cf.to_csv(outfile)
         # plot heatmap of table --> heatmap_pca.svg
+        ax = heatmap(pca_corr_to_cf)
+        plt.savefig(fig_outfile)
         # plot expl. var / var ratio vs #PC --> pca var .svg
         print("done")
 
+        pdb.set_trace()
         # PCA17, PCA300, LSC17 Logistic Regression on CF
         print(f"Action 4: Train Logistic Regression on LSC17, PCA17, PCA300, to predict CF. By 5-fold cross-val, 10 replicates.")
         outfile = os.path.join(basepath, f"log_reg_lsc17_pca_to_cf_{cohort}.csv" )   

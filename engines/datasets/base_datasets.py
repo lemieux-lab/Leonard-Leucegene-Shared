@@ -175,7 +175,7 @@ class SurvivalGEDataset():
             lb = LabelBinarizer()
             bin = lb.fit_transform(binf[feature])
             if bin.shape[1] == 1:
-                bin = np.hstack((bin, 1 - bin))
+                bin = np.hstack((1 - bin, bin))
                 bin_labels = pd.DataFrame(bin, columns = [f"{feature}_{c}" for c in lb.classes_], index = binf.index)
             else: bin_labels = pd.DataFrame(bin, columns = lb.classes_, index = binf.index)
             ret_df = ret_df.merge(bin_labels,  left_index = True, right_index = True)
