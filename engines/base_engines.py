@@ -7,6 +7,7 @@ import engines.models.dimredox_models as models
 from engines.optimisers.base_optimisers import HPOptimiser
 from engines.models import cox_models
 from engines import utils
+from engines.datasets.base_datasets import Data
 # base
 from torch.autograd import Variable
 from datetime import datetime
@@ -47,6 +48,14 @@ class Benchmark(Engine):
         elif proj_type == "RSelect":
             data = data["CDS"].clone()
             data.generate_RS(input_size)
+        elif proj_type == "CF-PCA":
+            y = data['CDS'].y
+            gi = data["CDS"].gene_info
+            red_bl_cf = data["CF_bin"].iloc[:,[0,1,2,3,4,5,7,9,11]]
+            pca = data["CDS"].clone()
+            pca.generate_PCA()
+            red_bl_cf_pca = red_bl_cf.merge(pca.x.iloc[:,:input_size], left_index = True, right_index = True)
+            data = Data(red_bl_cf_pca, y, gi , name = f"red_bl_PCA_d_{input_size}" )
         else:
             data = data[proj_type].clone()
         return data 
@@ -56,7 +65,7 @@ class Benchmark(Engine):
             o.writelines(line)
     
     def run(self, in_D):
-        self.OUTFILE = os.path.join(self.OUTDIR, f"m_{in_D}_{datetime.now()}_bm.csv")
+        self.OUTFILE = os.path.join(self.OUTDIR, f"d_{in_D}_n_{self._params.NREP_TECHN}_{datetime.now()}.csv")
         # init results
         tst_res = []
         tr_res = [] 

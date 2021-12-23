@@ -74,6 +74,19 @@ def compute_c_index(T,E, partial_hazards):
         c_index = lifelines.utils.concordance_index(T, -partial_hazards,E)
     return c_index
 
+def compute_cox_nll(t, e, out): 
+    # sort indices 
+    sorted_indices = np.argsort(t)
+    E = e[sorted_indices] # event obs. sorted
+    OUT = out[sorted_indices] # risk scores sorted
+    uncensored_likelihood = np.zeros(E.shape[0])# list of uncensored likelihoods
+    for x_i, E_i in enumerate(E): # cycle through samples
+        if E_i == 1: # if uncensored ...
+            log_risk = np.log(np.sum(np.exp(OUT[:x_i +1])))
+            uncensored_likelihood[x_i] = OUT[x_i] - log_risk # sub sum of log risks to hazard, append to uncensored likelihoods list
+    
+    loss = - uncensored_likelihood.sum() / (E == 1).sum() 
+    return loss 
 
 def XL_mHG_test(gene_set, go_matrix):
     pdb.set_trace()

@@ -61,17 +61,26 @@ class CPH():
 
         self.params = hp_dict
 
-    def _test(self, test_data):
+    def _test(self, test_data, c_index = True):
         test_features = test_data.x
         test_t = test_data.y["t"]
         test_e = test_data.y["e"]
         out = self.model.predict_log_partial_hazard(test_features)
-        l = self.loss(out, test_t, test_e)
-        c = functions.compute_c_index(test_t, test_e, out)
+        l = None #= self.loss(out, test_t, test_e)
+        c = functions.compute_c_index(test_t, test_e, out) if c_index else None
         return {"out":out, "l":l, "c":c}
     
     def loss(self, out, T, E): 
-        return 999 
+        # sort indices 
+        pdb.set_trace()
+        uncensored_likelihood = np.zeros(E.shape[0])# list of uncensored likelihoods
+        for x_i, E_i in enumerate(E): # cycle through samples
+            if E_i == 1: # if uncensored ...
+                log_risk = np.log(np.sum(np.exp(out[:x_i +1])))
+                uncensored_likelihood[x_i] = out[x_i] - log_risk # sub sum of log risks to hazard, append to uncensored likelihoods list
+        
+        loss = - uncensored_likelihood.sum() / (E == 1).sum() 
+        return loss 
 
 class CoxSGD(nn.Module):
     def __init__(self, data) -> None:
