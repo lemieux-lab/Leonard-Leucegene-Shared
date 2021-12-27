@@ -19,9 +19,9 @@ def run(args):
     plt.rcParams['svg.fonttype'] = 'none'
     # list outputfiles / directories
     base_fig_path = os.path.join("RES", "FIG", f"EXP_{args.EXP}")
-    datasets = ["lgn_pronostic", "tcga_target_aml"]
-    proj_types = ["PCA","RSelect", "RPgauss"]
-    input_dims = np.arange(1,80)
+    datasets = ["lgn_pronostic"]
+    proj_types = ["CF-PCA", "PCA","RSelect", "RPgauss"]
+    input_dims = np.arange(1,28)
     for dataset in datasets:
         by_methods_output_path = utils.assert_mkdir(os.path.join(base_fig_path, dataset,"by_methods"))
         by_input_dims_output_path = utils.assert_mkdir(os.path.join(base_fig_path, dataset, "by_input_dim"))
@@ -72,9 +72,10 @@ def run(args):
             descr_dict = {
                 "RPgauss": "Random projection (gaussian)",
                 "RSelect": "Random selection",
-                "PCA": "Principal Component Analysis"
+                "PCA": "Principal Component Analysis",
+                "CF-PCA": "Clinical features (6) + PCA (d)"
             }
-            for proj_type in ["RPgauss", "RSelect", "PCA"]:
+            for proj_type in ["RPgauss", "RSelect", "PCA", "CF-PCA"]:
                 hist_data = in_d_data[in_d_data["proj_type"] == proj_type].c_ind_tst
                 label = f"{descr_dict[proj_type]}, n= {hist_data.shape[0]}"
                 plt.hist(hist_data, alpha = 0.5, label = label, bins = 30)
