@@ -88,26 +88,28 @@ class Data:
         self.x = self._xpca
         return {"proj_x":self._xpca, "pca":self._pca }
         
-    def generate_RP(self, method, n = 17):
+    def generate_RP(self, method, n = 17, var_frac = 0):
         print("Running Random Projection...")
+        high_v_cols = self.x.columns[self.x.var() >= self.x.var().sort_values()[int(self.x.shape[1] * float(var_frac))]]
+        self._x_var_frac = self.x[high_v_cols] 
         if method == "gauss":
             self.transformer = random_projection.GaussianRandomProjection(n_components=n)
-            self._xrp = pd.DataFrame(self.transformer.fit_transform(self.x), index = self.x.index)
+            self._xrp = pd.DataFrame(self.transformer.fit_transform(self._x_var_frac), index = self.x.index)
         elif method == "sparse":
             self.transformer = random_projection.SparseRandomProjection(n_components=n)
-            self._xrp = pd.DataFrame(self.transformer.fit_transform(self.x), index = self.x.index)
+            self._xrp = pd.DataFrame(self.transformer.fit_transform(self._x_var_frac), index = self.x.index)
         self.x = self._xrp
     
-    def generate_RS(self, n):
-        print("Generating Random signature (genes with var > 0.1)...")
-        high_v_cols = self.x.columns[self.x.var() > 0.1]
+    def generate_RS(self, n, var_frac = 0.5):
+        #print(f"Generating Random signature (genes with var_frac: {var_frac})...")
+        high_v_cols = self.x.columns[self.x.var() >= self.x.var().sort_values()[int(self.x.shape[1] * float(var_frac))]]
         col_ids = np.arange(len(high_v_cols))
         np.random.shuffle(col_ids)
         # assert enough variance
         self.x = self.x[high_v_cols[:n]]
 
     def generate_SVD(self, n):
-        print("Running Singular Value Decomposition SVD ...")
+        #print("Running Singular Value Decomposition SVD ...")
         svd = TruncatedSVD(n_components = n)
         self.x = pd.DataFrame(svd.fit_transform(self.x), index = self.x.index)
 

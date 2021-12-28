@@ -42,12 +42,15 @@ class Benchmark(Engine):
         elif proj_type == "RPgauss":
             data = data["CDS"].clone()
             data.generate_RP("gauss", input_size)
+        elif proj_type == "RPgauss_var":
+            data = data["CDS"].clone()
+            data.generate_RP("gauss", input_size, var_frac = 0.5)
         elif proj_type == "RPsparse":
             data = data["CDS"].clone()
             data.generate_RP("sparse", input_size)
         elif proj_type == "RSelect":
             data = data["CDS"].clone()
-            data.generate_RS(input_size)
+            data.generate_RS(input_size, var_frac = 0.5)
         elif proj_type == "CF-PCA":
             y = data['CDS'].y
             gi = data["CDS"].gene_info
@@ -72,7 +75,7 @@ class Benchmark(Engine):
         agg_c_index = []
         header = ",".join(["cohort", "rep_n", "proj_type", "input_d", "c_ind_tr", "c_ind_tst"]) + "\n"
         self._dump(header)
-        for rep_n in range(self._params.NREP_TECHN):
+        for rep_n in tqdm(range(self._params.NREP_TECHN), desc = f"input D - {in_D}"):
             idx = np.arange(self.data["CDS"].x.shape[0])
             np.random.shuffle(idx) # shuffle dataset! 
 
@@ -84,7 +87,7 @@ class Benchmark(Engine):
                 tst_scores = [] # store risk prediction scores for agg_c_index calc
                 tr_c_ind_list = [] # store risk prediction scores for agg_c_index calc 
                 # a data frame containing training optimzation results
-                for foldn in tqdm(range(self._params.NFOLDS), desc = f"{rep_n + 1}-{proj_type}"):
+                for foldn in range(self._params.NFOLDS):
                     test_data = data.folds[foldn].test
                     train_data = data.folds[foldn].train
                     # choose model type, hps and train
