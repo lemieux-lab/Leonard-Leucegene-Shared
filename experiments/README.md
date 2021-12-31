@@ -1,5 +1,46 @@
 # Experiment Book
-## Experiment on Cox
+## FIG1
+```
+# generate scores data, leave-one-out bootstraps c_index
+python3 main.py --run_experiment 2 -C lgn_pronostic -P PCA17 LSC17 CF-LSC7 CF-PCA17 -M CPH -N_REP 1e4
+# plots c_index heatmap, km-fitting, survival curves
+python3 main.py --run_experiment p1
+```
+
+## FIG2 
+```
+# generate log_reg GE to CF results (leave-one-out)
+python3 main.py --run_experiment 2 -C lgn_pronostic -P PCA17 LSC17 PCA300 -M LOG_REG
+# generate freq barplot, correlation heatmap, pc expl. var plot
+python3 main.py --run_experiment p2 -C lgn_pronostic PCA30 
+```
+
+## FIG3
+```
+## performance by dimension sweep (Leucegene)
+python3 main.py --run_experiment 1 -C lgn_pronostic -P PCA CF-PCA RSelect RPgauss_var -IN_D 1 50 -N_REP 1000
+## performance of LSC17
+python3 main.py --run_experiment 1 -C lgn_pronostic -P LSC17 -IN_D 17 18 -N_REP 1000
+## plot results
+python3 main.py --run_experiment p3
+```
+
+## FIG4
+```
+## performance by dimension sweep (Leucegene Intermediate)
+python3 main.py --run_experiment 1 -C lgn_intermediate -P PCA -N_REP 1000 -IN_D 1 50
+
+## performance by dimension sweep (Leucegene Intermediate)
+python3 main.py --run_experiment 1 -C TCGA -P PCA -N_REP 1000 -IN_D 1 50
+
+## performance of LSC17, PCAX (found precedently)
+python3 main.py --run_experiment 2 -C TCGA lgn_intermediate -P PCAX LSC17
+
+## produce figures
+python3 main.py --run_experiment p4
+
+```
+
 
 ### What is survival data and survival analysis?
 Also called Time-to-event data, **survival data** presents recorded times before an event happened (eg. death). This data might be right-*censored*, meaning that we lost track of the sample before survey ended. It is a missing value that must be handled. Survival models try to associate a set of covariables called **X** to a survival function **S(t,X)**, dependent on time and the input covariables.

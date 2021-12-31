@@ -89,7 +89,7 @@ class Data:
         return {"proj_x":self._xpca, "pca":self._pca }
         
     def generate_RP(self, method, n = 17, var_frac = 0):
-        print("Running Random Projection...")
+        #print("Running Random Projection...")
         high_v_cols = self.x.columns[self.x.var() >= self.x.var().sort_values()[int(self.x.shape[1] * float(var_frac))]]
         self._x_var_frac = self.x[high_v_cols] 
         if method == "gauss":

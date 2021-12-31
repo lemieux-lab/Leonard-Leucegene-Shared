@@ -276,6 +276,7 @@ def run(args):
         print("done") 
 
         print(f"Action 3: Corr PCA to clinical features to CF. {outfile}")
+        # mini version without text (squares)
         outfile =os.path.join(basepath, f"corr_pca_cf_{cohort}.csv" )   
         fig2_outfile =os.path.join(basepath, f"pca_expl_var_{cohort}.svg" )
         
@@ -296,9 +297,11 @@ def run(args):
         print("done")
         
         # perform logistic regression fitting
+        # add AUC heatmap please
         if 1: action4(basepath, cohort_data, cohort)
         
         # perform cph benchmark computations
+        # add bootstraped c_index (1000)
         if 0: action5(cohort_data, cohort, basepath)
         
 
