@@ -33,6 +33,48 @@ python3 main.py
 ```
 The other commands will be explained.
 
+### 2.0.1: Experiment Book
+## FIG1
+```
+# generate scores data, leave-one-out bootstraps c_index
+python3 main.py --run_experiment 2 -C lgn_pronostic -P CYT CF LSC17 PCA17 CF-PCA17 CF-LSC17 -M CPH -N_REP 1e4
+# plots c_index heatmap, km-fitting, survival curves
+python3 main.py --run_experiment p1
+```
+
+## FIG2 
+```
+# generate log_reg GE to CF results (leave-one-out)
+python3 main.py --run_experiment 2 -C lgn_pronostic -P PCA17 LSC17 PCA300 -M LOG_REG
+# generate freq barplot, correlation heatmap, pc expl. var plot
+python3 main.py --run_experiment p2 -C lgn_pronostic PCA30 
+```
+
+## FIG3
+```
+## performance by dimension sweep (Leucegene)
+python3 main.py --run_experiment 1 -C lgn_pronostic -P PCA CF-PCA RSelect RPgauss_var -IN_D 1 50 -N_REP 1000
+## performance of LSC17
+python3 main.py --run_experiment 1 -C lgn_pronostic -P LSC17 -IN_D 17 18 -N_REP 1000
+## plot results
+python3 main.py --run_experiment p3
+```
+
+## FIG4
+```
+## performance by dimension sweep (Leucegene Intermediate)
+python3 main.py --run_experiment 1 -C lgn_intermediate -P PCA -N_REP 1000 -IN_D 1 50
+
+## performance by dimension sweep (Leucegene Intermediate)
+python3 main.py --run_experiment 1 -C TCGA -P PCA -N_REP 1000 -IN_D 1 50
+
+## performance of LSC17, PCAX (found precedently)
+python3 main.py --run_experiment 2 -C TCGA lgn_intermediate -P PCAX LSC17 -M CPH -N_REP 1000
+
+## produce figures (km-fitting, surv curves + c index heatmap)
+python3 main.py --run_experiment p4
+
+```
 ### 2.1 Load data
 
 * Loads in data
