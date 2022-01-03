@@ -44,7 +44,7 @@ class Data:
         self.x = self.x.sample(frac = 1)
         
         n = self.x.shape[0]
-        fold_size = int(float(n)/nfolds)
+        fold_size = int(float(n)/nfolds) + 1
         self.folds = []
         for i in range(nfolds):
             fold_ids = np.arange(i * fold_size, min((i + 1) * fold_size, n))

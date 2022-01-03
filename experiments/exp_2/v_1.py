@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn import base
+from sklearn.metrics import roc_auc_score 
 from engines.base_engines import Benchmark
 from engines.datasets.base_datasets import SurvivalGEDataset
 from engines import utils
@@ -44,7 +44,7 @@ def get_pca_lsc17_corr_to_cf(cohort_data):
     lsc17 = cohort_data["LSC17"].clone()
     # generate PCA
     pca = cohort_data["CDS"].clone()
-    pca.generate_PCA()
+    pca.generate_PCA(300)
     var = pca._pca.explained_variance_ / pca._pca.explained_variance_.sum() * 100
     header = np.concatenate((["PC", "expl_var"], bin_cf.columns))
     matrix = []
@@ -67,7 +67,7 @@ def get_pca_lsc17_corr_to_cf(cohort_data):
 
 def get_pca_lsc17_log_reg_perf_to_cf(cohort_data):
     pca = cohort_data["CDS"].clone()
-    pca.generate_PCA()
+    pca.generate_PCA(300)
     ge_data_list = [
         ("lsc17", cohort_data["LSC17"], 17),
         ("pca17", pca, 17),
@@ -82,14 +82,19 @@ def get_pca_lsc17_log_reg_perf_to_cf(cohort_data):
     "flt3": y.iloc[:,9],
     "sex": y.iloc[:,11]}
     header = np.concatenate([["repn","proj_type", "nb_input_f"], list(features.keys())] )
-    matrix = []
+    acc_matrix = []
+    auc_matrix = []
     for proj_name, ge_data, in_D in ge_data_list:
         for n in tqdm(range(10), desc = proj_name):
             ge_data.split_train_test(5)
-            row = [n+1, proj_name, in_D]
+            acc_row = [n+1, proj_name, in_D]
+            auc_row = [n+1, proj_name, in_D]
+            
             for feature in features.keys():
                 target = features[feature]    
+                acc = []
                 scores = []
+                targets = []
                 for fold in range(5):
                     # train
                     tr_x = ge_data.folds[fold].train.x.iloc[:,:in_D]
@@ -99,11 +104,17 @@ def get_pca_lsc17_log_reg_perf_to_cf(cohort_data):
                     # test 
                     tst_x = ge_data.folds[fold].test.x.iloc[:,:in_D]
                     tst_y = target.loc[tst_x.index]
-                    scores.append(clf.score(tst_x, tst_y))  
-                row.append(np.mean(scores))
-            matrix.append(row)
-    ret_df = pd.DataFrame(matrix, columns = header)
-    return ret_df
+                    acc.append(clf.score(tst_x, tst_y))  
+                    scores = np.concatenate([scores, clf.predict_proba(tst_x)[:,1].flatten()])
+                    targets = np.concatenate([targets, tst_y])
+                auc = roc_auc_score(targets, scores)
+                acc_row.append(np.mean(acc))
+                auc_row.append(auc)
+            acc_matrix.append(acc_row)
+            auc_matrix.append(auc_row)
+    acc = pd.DataFrame(acc_matrix, columns = header)
+    auc = pd.DataFrame(auc_matrix, columns = header)
+    return acc, auc
 
 def perform_projection(proj_type, data, input_size = 17):    
     # set data
@@ -226,7 +237,10 @@ def barplots(tbl):
     ax = dat.plot.bar(rot = 45)
     return ax 
 
-def heatmap(tbl, columns, figsize = (10,10)):
+def heatmap(tbl, columns, fig_path, proj_type, cohort, figsize = (10,10)):
+    fig_outfile =os.path.join(fig_path, f"corr_cf_{proj_type}_{cohort}_heatmap.svg" )
+    mini_fig_outfile = os.path.join(fig_path, f"corr_cf_{proj_type}_{cohort}_heatmap_mini.svg" )
+        
     # filter columns
     dat = tbl[columns].iloc[::-1]
     fig, ax = plt.subplots(figsize = figsize)
@@ -240,8 +254,34 @@ def heatmap(tbl, columns, figsize = (10,10)):
     ax.xaxis.tick_top()
     ax.set_xticklabels(dat.columns, rotation = 45)
     fig.colorbar(im)
-    return ax
+    plt.savefig(fig_outfile)
+    dat = dat.iloc[::-1,:]
+    fig, ax = plt.subplots(figsize = figsize)
+    im = ax.imshow(abs(dat), vmin = 0, vmax = 1, cmap=plt.cm.Blues)
+    ax.set_yticklabels(dat.index)
+    ax.set_xticks(np.arange(dat.shape[1]), minor=False)
+    ax.set_yticks(np.arange(dat.shape[0]), minor=False)
+    ax.xaxis.tick_top()
+    ax.set_xticklabels(dat.columns, rotation = 45)
+    fig.colorbar(im)
+    plt.savefig(mini_fig_outfile)
+def log_reg_heatmap(tbl, columns, figsize = (10,10)):
+      
+    # filter columns
+    dat = tbl[columns].iloc[::-1]
+    fig, ax = plt.subplots(figsize = figsize)
+    im = ax.pcolor(abs(dat), vmin = 0, vmax = 1, cmap=plt.cm.Blues)
+    for (i, j), z in np.ndenumerate(dat):
+        ax.text(j + 0.5, i + 0.5, '{:0.2f}'.format(z), ha='center', va='center')
 
+    ax.set_yticklabels(dat.index)
+    ax.set_xticks(np.arange(dat.shape[1]) + 0.5, minor=False)
+    ax.set_yticks(np.arange(dat.shape[0]) + 0.5, minor=False)
+    ax.xaxis.tick_top()
+    ax.set_xticklabels(dat.columns, rotation = 45)
+    fig.colorbar(im)
+    return ax 
+    
 def pc_var_plot(tbl):
     fig, ax = plt.subplots(figsize = (10,2))
     ax.bar(x = tbl.index, height = np.log10(tbl.expl_var))
@@ -251,21 +291,33 @@ def pc_var_plot(tbl):
     ax.set_xlabel("Principal component #")
     ax.set_ylabel("log(% Explained variance)")
 
-def action4(basepath, cohort_data, cohort):
+def action4(cohort_data, cohort, fig_path):
     # PCA17, PCA300, LSC17 Logistic Regression on CF
     print(f"Action 4: Train Logistic Regression on LSC17, PCA17, PCA300, to predict CF. By 5-fold cross-val, 10 replicates.")
-    outfile = os.path.join(basepath, f"log_reg_lsc17_pca_to_cf_{cohort}.csv" )   
-    fig_outfile = os.path.join(basepath, f"log_reg_lsc17_pca_to_cf_{cohort}.svg" )     
-    log_reg_res = get_pca_lsc17_log_reg_perf_to_cf(cohort_data)
-    log_reg_res.to_csv(outfile)
+    acc_outfile = os.path.join(fig_path, f"log_reg_lsc17_pca_to_cf_ACC_{cohort}.csv" )   
+    acc_fig_outfile = os.path.join(fig_path, f"log_reg_lsc17_pca_to_cf_ACC_{cohort}.svg" )     
+    auc_outfile = os.path.join(fig_path, f"log_reg_lsc17_pca_to_cf_AUC_{cohort}.csv" )   
+    auc_fig_outfile = os.path.join(fig_path, f"log_reg_lsc17_pca_to_cf_AUC_{cohort}.svg" )     
+     
+    log_reg_res_acc, log_reg_res_auc = get_pca_lsc17_log_reg_perf_to_cf(cohort_data)
+    log_reg_res_acc.to_csv(acc_outfile)
+    log_reg_res_auc.to_csv(auc_outfile)
     # add heatmap of results --> heatmap_log_reg.svg
     # preprocess 
-    dat = log_reg_res.groupby("proj_type").mean().reset_index()
-    dat.index = dat.proj_type
-    dat = dat.iloc[:, np.arange(3,10)]
-    ax = heatmap(dat, columns = ["adv_risk_y", "fav_risk_y", 
+    acc = log_reg_res_acc.groupby("proj_type").mean().reset_index()
+    auc = log_reg_res_auc.groupby("proj_type").mean().reset_index()
+    acc.index = acc.proj_type
+    acc = acc.iloc[:, np.arange(3,10)]
+    auc.index = auc.proj_type
+    auc = auc.iloc[:, np.arange(3,10)]
+    
+    ax = log_reg_heatmap(acc, columns = ["adv_risk_y", "fav_risk_y", 
     "int_risk_y", "npm1", "idh1", "flt3", "sex"], figsize = (9,3))
-    plt.savefig(fig_outfile)
+    plt.savefig(acc_fig_outfile)
+
+    ax = log_reg_heatmap(auc, columns = ["adv_risk_y", "fav_risk_y", 
+    "int_risk_y", "npm1", "idh1", "flt3", "sex"], figsize = (9,3))
+    plt.savefig(auc_fig_outfile)
     print("done")
 
 def action5(cohort_data, cohort, proj_types, outpath, bootstrap_n = 1000, plot_cyto = False):
@@ -307,9 +359,9 @@ def action1(args):
     print("done")
     return cohort_data
 
-def action2(cohort_data, cohort, basepath):
-    outfile = os.path.join(basepath, f"summary_table_cf_{cohort}.csv" )
-    fig_outfile =  os.path.join(basepath, f"summary_table_cf_{cohort}.svg")
+def action2(cohort_data, cohort, fig_path):
+    outfile = os.path.join(fig_path, f"summary_table_cf_{cohort}.csv" )
+    fig_outfile =  os.path.join(fig_path, f"summary_table_cf_{cohort}.svg")
     print(f"Action 2: Printing summary data table of clinical infos. --> {outfile, fig_outfile}")
     table = get_summary_table_cf(cohort_data)
     table.to_csv(outfile)
@@ -319,21 +371,20 @@ def action2(cohort_data, cohort, basepath):
     # bar plots of clinical features occ. --> barplot_cf.svg
     print("done") 
 
-def action3(cohort_data, cohort, basepath):
+def action3(cohort_data, cohort, fig_path):
     # mini version without text (squares)
-    outfile =os.path.join(basepath, f"corr_pca_cf_{cohort}.csv" )   
-    fig2_outfile =os.path.join(basepath, f"pca_expl_var_{cohort}.svg" )
+    outfile =os.path.join(fig_path, f"corr_pca_cf_{cohort}.csv" )   
+    fig2_outfile =os.path.join(fig_path, f"pca_expl_var_{cohort}.svg" )
     print(f"Action 3: Corr PCA to clinical features to CF. {outfile}")
     res = get_pca_lsc17_corr_to_cf(cohort_data)
     for proj_type, corr_df in res.items():
-        fig_outfile =os.path.join(basepath, f"corr_cf_{proj_type}_{cohort}_heatmap.svg" )
         corr_df.to_csv(outfile)
         # plot heatmap of table --> heatmap_pca.svg
-        ax = heatmap(corr_df, ['Age_at_diagnosis', 'adverse cytogenetics', 
+        heatmap(corr_df, ['Age_at_diagnosis', 'adverse cytogenetics', 
         'favorable cytogenetics', 'intermediate cytogenetics',
         'NPM1 mutation_1.0', 'IDH1-R132 mutation_1.0', 
-        'FLT3-ITD mutation_1', 'Sex_F'], figsize = (12,12))
-        plt.savefig(fig_outfile)
+        'FLT3-ITD mutation_1', 'Sex_F'],fig_path, proj_type, cohort, figsize = (12,12))
+        
         # plot expl. var / var ratio vs #PC --> pca var .svg
         if proj_type == "pca": 
             ax = pc_var_plot(corr_df)
@@ -341,20 +392,20 @@ def action3(cohort_data, cohort, basepath):
     print("done")
 
 def run(args):
-    
+    utils.assert_mkdir(args.OUTPATH)
     # load data, set up basepath
     cohort_data = action1(args)
 
     # plots the features frequency
-    #action2(cohort_data, args.COHORT, basepath)
+    if 0: action2(cohort_data, args.COHORT, args.OUTPATH)
     
     # plots the CORR to PCs with heatmap (full, mini) + var_expl plot
-    #action3(cohort_data, args.COHORT, basepath)
+    if 0: action3(cohort_data, args.COHORT, args.OUTPATH)
     
     if "LOG_REG" in args.MODEL_TYPES:
         # perform logistic regression fitting
         # add AUC heatmap please
-        action4(basepath, cohort_data, args.COHORT)
+        action4(cohort_data, args.COHORT, args.OUTPATH)
 
     if "CPH" in args.MODEL_TYPES:
         # perform cph benchmark computations

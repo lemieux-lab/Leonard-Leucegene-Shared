@@ -35,7 +35,7 @@ class Benchmark(Engine):
         # set data
         if proj_type == "PCA":
             data = data["CDS"].clone()
-            data.generate_PCA()
+            data.generate_PCA(input_size)
         elif proj_type == "SVD":
             data = data["CDS"].clone()
             data.generate_SVD(input_size)
@@ -87,6 +87,7 @@ class Benchmark(Engine):
                 tst_scores = [] # store risk prediction scores for agg_c_index calc
                 tr_c_ind_list = [] # store risk prediction scores for agg_c_index calc 
                 # a data frame containing training optimzation results
+
                 for foldn in range(self._params.NFOLDS):
                     test_data = data.folds[foldn].test
                     train_data = data.folds[foldn].train
@@ -98,7 +99,6 @@ class Benchmark(Engine):
                     tst_metrics = model._test(test_data)
                     tst_scores.append(tst_metrics["out"])
                     tr_c_ind_list.append(tr_metrics["c"])
-
                 c_ind_tr = np.mean(tr_c_ind_list)
                 c_ind_tst = functions.compute_c_index(data.y["t"], data.y["e"], np.concatenate(tst_scores))
                 line = ",".join(np.array([self.cohort, rep_n, proj_type, in_D, c_ind_tr, c_ind_tst]).astype(str)) + "\n"
