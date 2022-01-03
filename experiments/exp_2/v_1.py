@@ -14,6 +14,7 @@ from engines.models import cox_models
 import engines.models.functions as functions 
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
+from experiments import plotting_functions as plt_f
 
 def get_summary_table_cf(cohort_data):
     """
@@ -104,36 +105,77 @@ def get_pca_lsc17_log_reg_perf_to_cf(cohort_data):
     ret_df = pd.DataFrame(matrix, columns = header)
     return ret_df
 
-def get_pca_lsc17_cf_cph_perf(cohort_data, cohort, basepath):
-    nfolds = 300
-    y = cohort_data['CDS'].y
-    gi = cohort_data["CDS"].gene_info
-    # get reduced baseline , get cph perfo
-    red_bl_cf = cohort_data["CF_bin"].iloc[:,[0,1,2,3,4,5,7,9,11]]
-    # add PCA info to reduced baseline, get cph perfo
-    pca = cohort_data["CDS"].clone()
-    pca.generate_PCA()
-    red_bl_cf_pca17 = red_bl_cf.merge(pca.x.iloc[:,:17], left_index = True, right_index = True)
-    # add LSC17 info to reduced baseline, get cph perfo
-    lsc17 = cohort_data["LSC17"].clone()
-    red_bl_cf_lsc17 = red_bl_cf.merge(lsc17.x, left_index = True, right_index = True)
-    ge_cf_list = [
-        Data(red_bl_cf, y, gi, name = "reduced_baseline"), 
-        Data(red_bl_cf_pca17, y, gi , name = "red_bl_PCA17" ),
-        Data(red_bl_cf_lsc17, y, gi , name = "red_bl_cf_LSC17"),
-        Data(pca.x.iloc[:,:17], y, gi, name = "PCA17"),
-        Data(lsc17.x, y, gi, name = "LSC17"),
-    ]
+def perform_projection(proj_type, data, input_size = 17):    
+    # set data
+    if proj_type == "PCA":
+        data = data["CDS"].clone()
+        data.generate_PCA(input_size)
+    elif proj_type == "SVD":
+        data = data["CDS"].clone()
+        data.generate_SVD(input_size)
+    elif proj_type == "RPgauss":
+        data = data["CDS"].clone()
+        data.generate_RP("gauss", input_size)
+    elif proj_type == "RPgauss_var":
+        data = data["CDS"].clone()
+        data.generate_RP("gauss", input_size, var_frac = 0.5)
+    elif proj_type == "RPsparse":
+        data = data["CDS"].clone()
+        data.generate_RP("sparse", input_size)
+    elif proj_type == "RSelect":
+        data = data["CDS"].clone()
+        data.generate_RS(input_size, var_frac = 0.5)
+    elif proj_type == "CF-PCA":
+        y = data['CDS'].y
+        gi = data["CDS"].gene_info
+        red_bl_cf = data["CF_bin"].iloc[:,[0,1,2,3,4,5,7,9,11]]
+        pca = data["CDS"].clone()
+        pca.generate_PCA(input_size)
+        red_bl_cf_pca = red_bl_cf.merge(pca.x.iloc[:,:input_size], left_index = True, right_index = True)
+        data = Data(red_bl_cf_pca, y, gi , name = f"red_bl_PCA_d_{input_size}" )
+    
+    elif proj_type == "CF-LSC17":
+        y = data['LSC17'].y
+        gi = data["LSC17"].gene_info
+        red_bl_cf = data["CF_bin"].iloc[:,[0,1,2,3,4,5,7,9,11]]
+        lsc17 = data["LSC17"].clone()
+        red_bl_cf_lsc17 = red_bl_cf.merge(lsc17.x, left_index = True, right_index = True)
+        data = Data(red_bl_cf_lsc17, y, gi , name = f"red_bl_LSC17" )
+    
+    elif proj_type == "CF":
+        y = data['CDS'].y
+        gi = data["CDS"].gene_info
+        return Data(data["CF_bin"].iloc[:,[0,1,2,3,4,5,7,9,11]], y, gi, name = "Clinical features (binarized)")
+    elif proj_type == "CYT":
+        y = data['CDS'].y
+        gi = data["CDS"].gene_info
+        return Data(data["CF_bin"].iloc[:,[1,2,3]], y , gi, name = "Cytogenetic risk baseline")
+    elif proj_type == "LSC17":
+        data = data[proj_type].clone()
+        data.name = "LSC17"
+    return data 
+    
+def get_proj_type_cph_scores_perf(cohort_data, cohort, proj_types, fig_outdir, bootstrap_n = 1000):
+    nsamples = cohort_data["CDS"].x.shape[0]
+    nfolds = nsamples # leave one out 
+    # create datasets by proj_type
+    ge_cf_list = []
+    for p in proj_types:
+        if "PCA" in p:
+            input_size = int(p[-2:])
+            p = p[:-2]
+        else : input_size = 17
+        ge_cf_list.append(perform_projection(p, cohort_data, input_size = input_size))
+        
     # init empty ret matrix
-    header = ["proj_type","c_ind_tst", "cox_nll"]
-    matrix = []
+    scores_matrix = []
+    perfo_matrix = []
     # cycle through datasets
     for data in ge_cf_list:
         # shuffle dataset!
-        idx = np.arange(data.x.shape[0])
-        np.random.shuffle(idx) # shuffle dataset! 
-        data.reindex(idx)
-        losses = []
+        # idx = np.arange(data.x.shape[0])
+        # np.random.shuffle(idx) # shuffle dataset! 
+        # data.reindex(idx)
         # init empty scores 
         tst_scores = [] # store risk prediction scores for agg_c_index calc
         # split data
@@ -149,36 +191,21 @@ def get_pca_lsc17_cf_cph_perf(cohort_data, cohort, basepath):
             # test
             tst_metrics = model._test(test_data, c_index = False)
             tst_scores.append(tst_metrics["out"])
+
+            
         risk_scores = np.concatenate(tst_scores)
-        c_ind_tst = functions.compute_c_index(data.y["t"], data.y["e"], risk_scores)
-        cox_nll = functions.compute_cox_nll(data.y["t"], data.y["e"], risk_scores)
-
-        # add brier score, loss
-        # split hi-risk, lo-risk
-        plot_hi_risk_lo_risk(risk_scores, pd.DataFrame(data.y), basepath, data.name, cohort, c_ind_tst)
-        matrix.append([data.name, c_ind_tst, cox_nll])
-    ret_df = pd.DataFrame(matrix, columns = header)
-    
-    print(ret_df)
-    return ret_df 
-
-def plot_hi_risk_lo_risk(risk_scores, data, basepath, proj_type, cohort, c):
-    plt.figure()
-    # split hi-risk lo-risk
-    kmf = KaplanMeierFitter() 
-    # hi_risk
-    hi_risk = risk_scores > np.median(risk_scores)
-    # low_risk
-    lo_risk = risk_scores < np.median(risk_scores)
-    kmf.fit(data[hi_risk].t, data[hi_risk].e, label = "Hi risk")
-    a1 = kmf.plot()
-    kmf.fit(data[lo_risk].t, data[lo_risk].e, label = "Low risk") 
-    kmf.plot(ax=a1)
-    # log rank test
-    
-    results=logrank_test(data[hi_risk].t,data[lo_risk].t,event_observed_A= data[hi_risk].e, event_observed_B=data[hi_risk].e)
-    a1.set_title(f"Predicted KM survival curves High risk vs low {proj_type} {cohort} c = {c}\n log-rank test p_val: {results._p_value}")
-    plt.savefig(os.path.join(basepath, f"{proj_type}_cph_{cohort}_kaplan_meier.svg"))
+        scores_matrix.append(risk_scores)
+        perfo_list = []
+        for i in tqdm(range(bootstrap_n), desc = "bootstraping c_index"):
+            idx = np.random.choice(np.arange(nsamples), nsamples, replace = True)
+            c_ind_tst = functions.compute_c_index(data.y["t"][idx], data.y["e"][idx], risk_scores[idx])
+            perfo_list.append(c_ind_tst)
+        perfo_matrix.append(perfo_list)
+        plt_f.plot_hi_risk_lo_risk(risk_scores, pd.DataFrame(data.y), fig_outdir, data.name, cohort, perfo_list)
+        #cox_nll = functions.compute_cox_nll(data.y["t"], data.y["e"], risk_scores)
+    #scores = pd.DataFrame(np.array(scores_matrix).T, columns = proj_types, index = ge_cf_list[0].x.index)
+    #perfo = pd.DataFrame(np.array(perfo_matrix).T, columns = proj_types)
+    #return scores, perfo 
 
 
 
@@ -241,69 +268,98 @@ def action4(basepath, cohort_data, cohort):
     plt.savefig(fig_outfile)
     print("done")
 
-def action5(cohort_data, cohort, basepath):
+def action5(cohort_data, cohort, proj_types, outpath, bootstrap_n = 1000, plot_cyto = False):
     # CF (reduced bl) + LSC17 / PCA --> survival (with CPH)
         # add a multi variate CPH trained on all features but cyto risk
         # add CPH on cyto risk only
-        # output survivor curves by (true) cyto risk
+        # add bootstraped c_index (1000)
+        # output scores by samples, with CF
         # foreach input feature type (PCA-CF, PCA, CF, LSC17, LSC17-CF, CR, CR'):
         #   output the inferred CPH covariate beta factors distributions, p-values??
         #   output performance metric (could we also get Loss? Brier-Score?)
-    print("Action 5: Getting the performance of A) reduced CF baseline with CoxPH. B) reduced CF baseline + LSC17 C) reduced CF baseline + PCA17 ")
-    table_outfile = os.path.join(basepath, f"benchmark_bl_cf_lsc17_pca_cph_{cohort}.csv" ) 
-    benchmark = get_pca_lsc17_cf_cph_perf(cohort_data, cohort, basepath)
-    benchmark.to_csv(table_outfile)
-    print("done")
+    if 1: 
+        print("Action 5: Getting the performance of CPH with input features with survival curves:")
+        print("A) reduced CF baseline")
+        print("B) reduced CF baseline + LSC17")
+        print("C) reduced CF baseline + PCA17")
+        print("D) PCA17 only")
+        print("E) LSC17 only")
+        print("F) Plot CYT only on cohort")
+    fig_outdir = utils.assert_mkdir(outpath) 
+    #scores_outfile = os.path.join(outdir, f"{cohort}_scores_by_method.csv" )
+    #perfo_outfile = os.path.join(outdir, f"{cohort}_bootstrap_{bootstrap_n}_by_method.csv" ) 
+    # cytogenetic risk only features
+    get_proj_type_cph_scores_perf(cohort_data, cohort, proj_types, fig_outdir, bootstrap_n = bootstrap_n)
+    # merge with CF file
+    # dump
+    if plot_cyto:
+        CYT  = perform_projection("CYT", cohort_data)
+        plt_f.plot_CYT_km_curves(CYT.x, CYT.y, cohort, fig_outdir)
+    # scores = scores.merge(cohort_data["CDS"].y, right_index = True, left_index = True)
+    # scores = scores.merge(CYT.x, right_index = True, left_index = True)
     
+    print("done")
+
+def action1(args):
+    print("Action 1: Loading data, preprocessing data...")
+    SGE = SurvivalGEDataset()
+    cohort_data = SGE.get_data(args.COHORT)
+    print("done")
+    return cohort_data
+
+def action2(cohort_data, cohort, basepath):
+    outfile = os.path.join(basepath, f"summary_table_cf_{cohort}.csv" )
+    fig_outfile =  os.path.join(basepath, f"summary_table_cf_{cohort}.svg")
+    print(f"Action 2: Printing summary data table of clinical infos. --> {outfile, fig_outfile}")
+    table = get_summary_table_cf(cohort_data)
+    table.to_csv(outfile)
+    axes = barplots(table)
+    axes.set_ylim([0,1])
+    plt.savefig(fig_outfile)
+    # bar plots of clinical features occ. --> barplot_cf.svg
+    print("done") 
+
+def action3(cohort_data, cohort, basepath):
+    # mini version without text (squares)
+    outfile =os.path.join(basepath, f"corr_pca_cf_{cohort}.csv" )   
+    fig2_outfile =os.path.join(basepath, f"pca_expl_var_{cohort}.svg" )
+    print(f"Action 3: Corr PCA to clinical features to CF. {outfile}")
+    res = get_pca_lsc17_corr_to_cf(cohort_data)
+    for proj_type, corr_df in res.items():
+        fig_outfile =os.path.join(basepath, f"corr_cf_{proj_type}_{cohort}_heatmap.svg" )
+        corr_df.to_csv(outfile)
+        # plot heatmap of table --> heatmap_pca.svg
+        ax = heatmap(corr_df, ['Age_at_diagnosis', 'adverse cytogenetics', 
+        'favorable cytogenetics', 'intermediate cytogenetics',
+        'NPM1 mutation_1.0', 'IDH1-R132 mutation_1.0', 
+        'FLT3-ITD mutation_1', 'Sex_F'], figsize = (12,12))
+        plt.savefig(fig_outfile)
+        # plot expl. var / var ratio vs #PC --> pca var .svg
+        if proj_type == "pca": 
+            ax = pc_var_plot(corr_df)
+            plt.savefig(fig2_outfile)
+    print("done")
+
 def run(args):
     
-    for cohort in args.COHORTS:
-        print("Action 1: Loading data, preprocessing data...")
-        SGE = SurvivalGEDataset()
-        cohort_data = SGE.get_data(cohort)
-        basepath = utils.assert_mkdir(os.path.join("RES", f"EXP_{args.EXP}"))
-        print("done")
+    # load data, set up basepath
+    cohort_data = action1(args)
 
-        outfile = os.path.join(basepath, f"summary_table_cf_{cohort}.csv" )
-        fig_outfile =  os.path.join(basepath, f"summary_table_cf_{cohort}.svg")
-        print(f"Action 2: Printing summary data table of clinical infos. --> {outfile, fig_outfile}")
-        table = get_summary_table_cf(cohort_data)
-        table.to_csv(outfile)
-        axes = barplots(table)
-        axes.set_ylim([0,1])
-        plt.savefig(fig_outfile)
-        # bar plots of clinical features occ. --> barplot_cf.svg
-        print("done") 
-
-        print(f"Action 3: Corr PCA to clinical features to CF. {outfile}")
-        # mini version without text (squares)
-        outfile =os.path.join(basepath, f"corr_pca_cf_{cohort}.csv" )   
-        fig2_outfile =os.path.join(basepath, f"pca_expl_var_{cohort}.svg" )
-        
-        res = get_pca_lsc17_corr_to_cf(cohort_data)
-        for proj_type, corr_df in res.items():
-            fig_outfile =os.path.join(basepath, f"corr_cf_{proj_type}_{cohort}_heatmap.svg" )
-            corr_df.to_csv(outfile)
-            # plot heatmap of table --> heatmap_pca.svg
-            ax = heatmap(corr_df, ['Age_at_diagnosis', 'adverse cytogenetics', 
-            'favorable cytogenetics', 'intermediate cytogenetics',
-            'NPM1 mutation_1.0', 'IDH1-R132 mutation_1.0', 
-            'FLT3-ITD mutation_1', 'Sex_F'], figsize = (12,12))
-            plt.savefig(fig_outfile)
-            # plot expl. var / var ratio vs #PC --> pca var .svg
-            if proj_type == "pca": 
-                ax = pc_var_plot(corr_df)
-                plt.savefig(fig2_outfile)
-        print("done")
-        
+    # plots the features frequency
+    #action2(cohort_data, args.COHORT, basepath)
+    
+    # plots the CORR to PCs with heatmap (full, mini) + var_expl plot
+    #action3(cohort_data, args.COHORT, basepath)
+    
+    if "LOG_REG" in args.MODEL_TYPES:
         # perform logistic regression fitting
         # add AUC heatmap please
-        if 1: action4(basepath, cohort_data, cohort)
-        
+        action4(basepath, cohort_data, args.COHORT)
+
+    if "CPH" in args.MODEL_TYPES:
         # perform cph benchmark computations
-        # add bootstraped c_index (1000)
-        if 0: action5(cohort_data, cohort, basepath)
         
+        action5(cohort_data, args.COHORT, args.PROJ_TYPES, args.OUTPATH, bootstrap_n = args.NREP_TECHN, plot_cyto = args.PLOT_CYTO_RISK)
 
 
 

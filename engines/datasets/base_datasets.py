@@ -72,9 +72,8 @@ class Data:
             self.x = pd.DataFrame(self.x.detach().cpu().numpy())
             self.y = pd.DataFrame(self.y.detach().cpu().numpy(), columns = ["t", "e"])
     
-    def generate_PCA(self):
-        print("Running PCA...")
-        
+    def generate_PCA(self, input_size):
+        self.name = f"PCA-{input_size}"
         # init object
         self._pca = PCA()
         # fit to data
@@ -85,10 +84,11 @@ class Data:
         # 
         # Writes to file 
         # 
-        self.x = self._xpca
+        self.x = self._xpca.iloc[:,:input_size]
         return {"proj_x":self._xpca, "pca":self._pca }
         
     def generate_RP(self, method, n = 17, var_frac = 0):
+        self.name = f"random projection var frac = {var_frac}"
         #print("Running Random Projection...")
         high_v_cols = self.x.columns[self.x.var() >= self.x.var().sort_values()[int(self.x.shape[1] * float(var_frac))]]
         self._x_var_frac = self.x[high_v_cols] 
@@ -101,6 +101,7 @@ class Data:
         self.x = self._xrp
     
     def generate_RS(self, n, var_frac = 0.5):
+        self.name = "random selection"
         #print(f"Generating Random signature (genes with var_frac: {var_frac})...")
         high_v_cols = self.x.columns[self.x.var() >= self.x.var().sort_values()[int(self.x.shape[1] * float(var_frac))]]
         col_ids = np.arange(len(high_v_cols))
@@ -160,14 +161,20 @@ class SurvivalGEDataset():
         return gene_info
     
     def get_data(self, cohort):
-        picker = {
-            "lgn_pronostic": Leucegene_Dataset,
-            "tcga_target_aml": TCGA_Dataset
-        }
+        if cohort == "lgn_pronostic": 
+            DS = Leucegene_Dataset(self.gene_repertoire)
+            DS.load()
+            self._set_data(DS, rm_unexpr=True)
         # load 
-        DS = picker[cohort](self.gene_repertoire)
-        DS.load()
-        self._set_data(DS, rm_unexpr=True)
+        elif cohort == "tcga_target_aml":
+            DS = TCGA_Dataset(self.gene_repertoire)
+            DS.load()
+            self._set_data(DS, rm_unexpr=True, binarize = False)
+
+        elif cohort == "lgn_intermediate":
+            DS = Leucegene_Dataset(self.gene_repertoire)
+            DS.load()
+            self._set_data(DS, subset = "intermediate cytogenetics", rm_unexpr=True)
         return self.data
     
     def _binarize_clin_infos(self, features, bin_features):
@@ -183,13 +190,25 @@ class SurvivalGEDataset():
             ret_df = ret_df.merge(bin_labels,  left_index = True, right_index = True)
         self.CF_bin = ret_df
 
-    def _set_data(self, DS, rm_unexpr = False):
-        self._GE_TPM = DS._GE_TPM
-        self.CF = DS._CLIN_INFO
-        features = ["Cytogenetic risk", "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation","Age_at_diagnosis", "Sex"]
-        bin_features = ["Cytogenetic risk", "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation", "Sex"]
-        self._binarize_clin_infos(features, bin_features)
-        self.COHORT = DS.COHORT
+    def _set_data(self, DS, subset = None, rm_unexpr = False, binarize = True):
+        if subset:
+            subset_ids = DS._CLIN_INFO["Cytogenetic risk"] == "intermediate cytogenetics"
+            self._GE_TPM = DS._GE_TPM.T[subset_ids].T
+            self.CF = DS._CLIN_INFO[subset_ids]
+            if binarize:
+                features = ["NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation","Age_at_diagnosis", "Sex"]
+                bin_features = [ "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation", "Sex"]
+                self._binarize_clin_infos(features, bin_features)
+            self.COHORT = DS.COHORT + "_int"
+        else : 
+            self._GE_TPM = DS._GE_TPM
+            self.CF = DS._CLIN_INFO
+            if binarize:
+                features = ["Cytogenetic risk", "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation","Age_at_diagnosis", "Sex"]
+                bin_features = ["Cytogenetic risk", "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation", "Sex"]
+                self._binarize_clin_infos(features, bin_features)
+            else: self.CF_bin = self.CF 
+            self.COHORT = DS.COHORT
         # select cds
         ### select based on repertoire
         # filtering if needed, merge with GE data  
