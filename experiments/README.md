@@ -29,15 +29,21 @@ python3 main.py --run_experiment p3
 ```
 ## performance by dimension sweep (Leucegene Intermediate)
 python3 main.py --run_experiment 1 -C lgn_intermediate -P PCA -N_REP 1000 -IN_D 1 50
+python3 main.py --run_experiment 1 -C lgn_intermediate -P LSC17 -N_REP 1000 -IN_D 17 18
 
 ## performance by dimension sweep (Leucegene Intermediate)
-python3 main.py --run_experiment 1 -C TCGA -P PCA -N_REP 1000 -IN_D 1 50
+python3 main.py --run_experiment 1 -C tcga_target_aml -P PCA -N_REP 1000 -IN_D 1 50
+python3 main.py --run_experiment 1 -C tcga_target_aml -P LSC17 -N_REP 1000 -IN_D 17 18
+
+## plots
+python main.py --run_experiment p1 -C lgn_pronostic_int -O RES/FIGS/FIG4
+python main.py --run_experiment p1 -C tcga_target_aml -O RES/FIGS/FIG4
 
 ## performance of LSC17, PCAX (found precedently)
-python3 main.py --run_experiment 2 -C TCGA lgn_intermediate -P PCAX LSC17 -M CPH -N_REP 1000
+python3 main.py --run_experiment 2 -C lgn_intermediate -P PCA19 LSC17 -M CPH -N_REP 1000 -O RES/FIGS/FIG4
+python3 main.py --run_experiment 2 -C tcga_target_aml -P PCA20 LSC17 -M CPH -N_REP 1000
+-O RES/FIGS/FIG4
 
-## produce figures (km-fitting, surv curves + c index heatmap)
-python3 main.py --run_experiment p4
 
 ```
 

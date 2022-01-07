@@ -190,7 +190,7 @@ def get_proj_type_cph_scores_perf(cohort_data, cohort, proj_types, fig_outdir, b
         # init empty scores 
         tst_scores = [] # store risk prediction scores for agg_c_index calc
         # split data
-        data.split_train_test(nfolds)
+        data.split_train_test(nfolds, loo = True)
         # cycle through folds
         for foldn in tqdm(range(nfolds), desc = f"leave-one-out CPH-{data.name}"):
             test_data = data.folds[foldn].test

@@ -39,12 +39,13 @@ class Data:
             self.folds[i].train = train
             self.folds[i].test = test
 
-    def split_train_test(self, nfolds, device = "cpu"):
+    def split_train_test(self, nfolds, device = "cpu", loo = False):
          # do nothing if dataset is already split! 
         self.x = self.x.sample(frac = 1)
         
         n = self.x.shape[0]
-        fold_size = int(float(n)/nfolds) + 1
+        fold_size = int(float(n)/nfolds)
+        fold_size = fold_size if loo else fold_size + 1
         self.folds = []
         for i in range(nfolds):
             fold_ids = np.arange(i * fold_size, min((i + 1) * fold_size, n))
