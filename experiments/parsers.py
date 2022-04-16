@@ -8,10 +8,11 @@ def parse_arguments():
     parser.add_argument("-C", dest = "COHORT", type = str, default = ["lgn_pronostic"], help = "public: \tThe Leucegene public subset = 403 samples. Curated samples subset to complete different feature prediction on.\n pronostic: The Leucegene pronostic subset = 300 samples. Curated samples subset that was selected to perform survival analysis on. \n lgn_intermediate: From The Leucegene pronostic subset, intermediate cytogenetic risk, n samples = 177. \n tcga_target_aml")
     parser.add_argument("-N_REP", dest = "NREP_TECHN", default = 10, type = int, help = "number of technical replicates") 
     parser.add_argument("-IN_D", dest = "INPUT_DIMS", default = [17,18], type = int, nargs = "+", help = "range of number of input dimensions to test (min,max) default= [17,18]")
+    parser.add_argument("-WD", dest = "WEIGHT_DECAY", default = 1e-3, type = float, help = "l2 regularization strength, default = 0.001")
     # for the input projection types
     help = "list of projection types for survival prediction and further analyses default = [PCA, SVD, LSC17, RPgauss, RPsparse, RSelect]"
     parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse", "RSelect"], help= help)
-    parser.add_argument("-M", dest = "MODEL_TYPES", type = str, nargs = "+", default = ["CPH"], help= "list of models to perform survival modelling.")
+    parser.add_argument("-M", dest = "MODEL_TYPES", type = str, nargs = "+", default = [None], help= "list of models to perform survival modelling.")
     parser.add_argument("-CYT", dest = "PLOT_CYTO_RISK", action = "store_true", help= "exp 2: run the km fitting from cyto groups.")
      
     # OLD

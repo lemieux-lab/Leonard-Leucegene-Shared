@@ -9,6 +9,7 @@ import torch
 from tqdm import tqdm
 import pdb 
 # classes 
+        
 class CPH():
     def __init__(self, data, nepochs = 1):
 
@@ -81,6 +82,15 @@ class CPH():
         
         loss = - uncensored_likelihood.sum() / (E == 1).sum() 
         return loss 
+
+class ridge_CPH(CPH):
+    def __init__(self, data, nepochs = 1):
+        super(ridge_CPH, self).__init__(data,nepochs)
+
+    def _train(self):
+        model = CPHDNN(self.data)
+        model.set_random_params()
+        pdb.set_trace()
 
 class CoxSGD(nn.Module):
     def __init__(self, data) -> None:
@@ -203,7 +213,8 @@ class CoxSGD(nn.Module):
 class CPHDNN(nn.Module):
     def __init__(self, data):
         super(CPHDNN, self).__init__()
-        self.data = data        
+        self.data = data
+        self.params = defaultdict()    
         self.loss_training = []
         self.loss_valid = []
         self.c_index_training = []
@@ -237,6 +248,8 @@ class CPHDNN(nn.Module):
             # "dp": np.ones(self.params["D"]) * self.params["dp"] 
         }
         self.params["nInPCA"] = np.random.randint(2,26)
+        self.params["device"] = "cuda:0"
+        self.params["lr"] = 1e-4
         self.setup_stack()
         self.optimizer = torch.optim.Adam(self.parameters(), lr = self.params["lr"], weight_decay = self.params["wd"])        
 

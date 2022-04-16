@@ -166,7 +166,7 @@ def perform_projection(proj_type, data, input_size = 17):
         data.name = "LSC17"
     return data 
     
-def get_proj_type_cph_scores_perf(cohort_data, cohort, proj_types, fig_outdir, bootstrap_n = 1000):
+def get_proj_type_cph_scores_perf(cohort_data, cohort, proj_types, fig_outdir, wd = 0.001, bootstrap_n = 1000):
     nsamples = cohort_data["CDS"].x.shape[0]
     nfolds = nsamples # leave one out 
     # create datasets by proj_type
@@ -197,7 +197,7 @@ def get_proj_type_cph_scores_perf(cohort_data, cohort, proj_types, fig_outdir, b
             train_data = data.folds[foldn].train
             # choose model type, hps and train
             model = cox_models.CPH(data = train_data)
-            model.set_fixed_params({"input_size": train_data.x.shape[1], "wd": 1e-10})
+            model.set_fixed_params({"input_size": train_data.x.shape[1], "wd": wd})
             tr_metrics = model._train()
             # test
             tst_metrics = model._test(test_data, c_index = False)
@@ -212,7 +212,7 @@ def get_proj_type_cph_scores_perf(cohort_data, cohort, proj_types, fig_outdir, b
             c_ind_tst = functions.compute_c_index(data.y["t"][idx], data.y["e"][idx], risk_scores[idx])
             perfo_list.append(c_ind_tst)
         perfo_matrix.append(perfo_list)
-        plt_f.plot_hi_risk_lo_risk(risk_scores, pd.DataFrame(data.y), fig_outdir, data.name, cohort, perfo_list)
+        plt_f.plot_hi_risk_lo_risk(risk_scores, pd.DataFrame(data.y), fig_outdir, data.name, cohort,wd, perfo_list)
         #cox_nll = functions.compute_cox_nll(data.y["t"], data.y["e"], risk_scores)
     #scores = pd.DataFrame(np.array(scores_matrix).T, columns = proj_types, index = ge_cf_list[0].x.index)
     #perfo = pd.DataFrame(np.array(perfo_matrix).T, columns = proj_types)
@@ -320,7 +320,7 @@ def action4(cohort_data, cohort, fig_path):
     plt.savefig(auc_fig_outfile)
     print("done")
 
-def action5(cohort_data, cohort, proj_types, outpath, bootstrap_n = 1000, plot_cyto = False):
+def action5(cohort_data, cohort, proj_types, outpath, wd = 0.001, bootstrap_n = 1000, plot_cyto = False):
     # CF (reduced bl) + LSC17 / PCA --> survival (with CPH)
         # add a multi variate CPH trained on all features but cyto risk
         # add CPH on cyto risk only
@@ -331,17 +331,13 @@ def action5(cohort_data, cohort, proj_types, outpath, bootstrap_n = 1000, plot_c
         #   output performance metric (could we also get Loss? Brier-Score?)
     if 1: 
         print("Action 5: Getting the performance of CPH with input features with survival curves:")
-        print("A) reduced CF baseline")
-        print("B) reduced CF baseline + LSC17")
-        print("C) reduced CF baseline + PCA17")
-        print("D) PCA17 only")
-        print("E) LSC17 only")
-        print("F) Plot CYT only on cohort")
+        print (proj_types)
+        print ("weight decay (l2) : ", wd)
     fig_outdir = utils.assert_mkdir(outpath) 
     #scores_outfile = os.path.join(outdir, f"{cohort}_scores_by_method.csv" )
     #perfo_outfile = os.path.join(outdir, f"{cohort}_bootstrap_{bootstrap_n}_by_method.csv" ) 
     # cytogenetic risk only features
-    get_proj_type_cph_scores_perf(cohort_data, cohort, proj_types, fig_outdir, bootstrap_n = bootstrap_n)
+    get_proj_type_cph_scores_perf(cohort_data, cohort, proj_types, fig_outdir, wd = wd, bootstrap_n = bootstrap_n)
     # merge with CF file
     # dump
     if plot_cyto:
@@ -410,7 +406,7 @@ def run(args):
     if "CPH" in args.MODEL_TYPES:
         # perform cph benchmark computations
         
-        action5(cohort_data, args.COHORT, args.PROJ_TYPES, args.OUTPATH, bootstrap_n = args.NREP_TECHN, plot_cyto = args.PLOT_CYTO_RISK)
-
+        action5(cohort_data, args.COHORT, args.PROJ_TYPES, args.OUTPATH, wd = args.WEIGHT_DECAY, bootstrap_n = args.NREP_TECHN, plot_cyto = args.PLOT_CYTO_RISK)
+    if args.debug: pdb.set_trace()
 
 

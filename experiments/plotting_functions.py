@@ -5,7 +5,7 @@ from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
 import os
 
-def plot_hi_risk_lo_risk(risk_scores, data, fig_outdir, proj_type, cohort, perfo_list):
+def plot_hi_risk_lo_risk(risk_scores, data, fig_outdir, proj_type, cohort, wd, perfo_list):
     plt.figure(figsize = (6,5))
     # split hi-risk lo-risk
     kmf = KaplanMeierFitter() 
@@ -25,7 +25,7 @@ def plot_hi_risk_lo_risk(risk_scores, data, fig_outdir, proj_type, cohort, perfo
     hi_c_ind = c_ind[int(0.975 * len(c_ind))]
     a1.set_title(f"Predicted KM survival curves High risk vs low {proj_type} \n {cohort} c = {np.median(c_ind).round(4)}, ({low_c_ind.round(4)}, {hi_c_ind.round(4)})\n log-rank test p_val: {results._p_value}")
     a1.set_ylim([0,1])
-    plt.savefig(os.path.join(fig_outdir, f"{cohort}_{proj_type}_km_surv_curves.svg"))
+    plt.savefig(os.path.join(fig_outdir, f"{cohort}_{proj_type}_{wd}_km_surv_curves.svg"))
 
 def plot_CYT_km_curves(CYT,true_S, cohort, outdir):
     # plot CYT only baseline
