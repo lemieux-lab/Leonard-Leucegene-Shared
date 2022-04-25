@@ -18,6 +18,10 @@ python3 -m venv env
 ```
 
 **Activate environment (everytime to run)**
+*On windows, do this before activating. (in a powershell)*
+```
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
+```
 ```
 source env/bin/activate
 ```
