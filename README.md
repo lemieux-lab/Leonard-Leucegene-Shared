@@ -18,11 +18,25 @@ python3 -m venv env
 ```
 
 **Activate environment (everytime to run)**
+
+**On windows**
+
+do this before activating. (in a powershell)*
+```
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
+```
+Then, to activate the environment. One of the options.
+```
+./env/Scripts/Activate.ps1
+./env/Scripts/activate
+```
+
+**On Unix**
 ```
 source env/bin/activate
 ```
 
-Install required packages (Only first time)
+**Install required packages (Only first time)**
 ```
 python3 -m pip install -r requirements.txt
 ```
