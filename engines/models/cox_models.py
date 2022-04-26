@@ -90,6 +90,8 @@ class ridge_CPH(CPH):
     def _train(self):
         model = CPHDNN(self.data)
         model.set_random_params()
+        model.params["epochs"] = 10
+        model._train_cv(0)
         pdb.set_trace()
 
 class CoxSGD(nn.Module):
@@ -257,7 +259,7 @@ class CPHDNN(nn.Module):
         risk = self.stack(x)
         return risk # torch.clamp(risk, min = -1000, max = 10)
     
-    def loss(self, out, T, E): 
+    def loss(self, out, T, E):
         uncensored_likelihood = torch.zeros(E.size())# list of uncensored likelihoods
         for x_i, E_i in enumerate(E): # cycle through samples
             if E_i == 1: # if uncensored ...
@@ -309,10 +311,10 @@ class CPHDNN(nn.Module):
             self.c_index_training.append(c_index / n)
 
     def _train_cv(self, foldn):
-        d =  self.data.folds[foldn].train
+        dat =  self.data.folds[foldn].train
         
         bs = 24
-        N = d.x.shape[0]
+        N = dat.x.shape[0]
         self.nbatch = int(np.ceil(N / bs))
         for e in range(self.params["epochs"]): # add timer 
             n = 0
@@ -320,9 +322,12 @@ class CPHDNN(nn.Module):
             c_index = 0
             
             for i in range(self.nbatch):
+                X = torch.Tensor(dat.x.values).to("cuda:0")
+                Y = torch.Tensor(dat.y.values).to("cuda:0")
                 train_ids = np.arange(i * bs , (i + 1) * bs)
-                sorted_ids = torch.argsort(d.y[train_ids,0], descending = True) 
-                train_features, train_T, train_E = d.x[sorted_ids], d.y[sorted_ids,0], d.y[sorted_ids,1]
+                sorted_ids = torch.argsort(Y[train_ids,0], descending = True) 
+                train_features, train_T, train_E = X[sorted_ids], Y[sorted_ids,0], Y[sorted_ids,1]
+                pdb.set_trace()
                 # train
                 #print (f"train features: {train_features.size()}")
                 #print (f"train T: {train_T.size()}")
