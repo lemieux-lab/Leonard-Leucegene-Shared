@@ -1,4 +1,4 @@
-from engines.models.cox_models import CPH, CPHDNN, CoxSGD
+from engines.models.cox_models import CPH, CPHDNN
 import engines.models.functions as functions 
 from torch import nn
 from collections import defaultdict
@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pdb
 
-model_picker = {"CPH": CPH, "CPHDNN": CPHDNN, "CoxSGD": CoxSGD}
+model_picker = {"CPH": CPH, "CPHDNN": CPHDNN}
 class HPOptimiser:
     def __init__(self, train_data, 
                     model_type = "CPH", 
