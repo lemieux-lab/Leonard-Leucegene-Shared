@@ -4,6 +4,7 @@ from engines.hp_dict import base as HP_dict
 import numpy as np
 from lifelines import CoxPHFitter
 import engines.models.functions as functions 
+from experiments.plotting_functions import *
 import pandas as pd
 import os
 import torch
@@ -85,41 +86,32 @@ class CPH():
         loss = - uncensored_likelihood.sum() / (E == 1).sum() 
         return loss 
 
-class ridge_CPH(CPH):
-    def __init__(self, data, nepochs = 1):
-        super(ridge_CPH, self).__init__(data,nepochs)
+class ridge_CPHDNN(CPH):
+    def __init__(self, data, modeltype="cphdnn", nepochs = 1):
+        super(ridge_CPHDNN, self).__init__(data,nepochs)
         # init ridge_cph specs within CPHDNN framework
-        self.hp_dict = HP_dict.generate_default("ridge_cph", data)
+        self.hp_dict = HP_dict.generate_default(modeltype, data)
 
     def train(self):
         for foldn in range(self.hp_dict["nfolds"]):
             self.model = CPHDNN(self.data, hp_dict = self.hp_dict)
             print(self.model.params)
-            tr_metrics = self.model._train_cv(foldn)
+            train_c_index = self.model._train_cv(foldn)
+            train_metrics = {"loss": self.model.loss_training, "c_index": self.model.c_index_training}
             out, l , c = self.model._valid_cv(foldn)
-            print("tr_metrics:", tr_metrics)
+            valid_metrics = {"out":out, "loss": l, "c_index": c}
+            print("tr_metrics:", train_c_index)
             print("vld_metrics:", l, c)
-            fig, ax1 = plt.subplots()
-            ax1.set_xlabel('steps')
-            ax1.set_ylabel('loss')
-            ax1.scatter(np.arange(len(self.model.loss_training)), self.model.loss_training, label = "loss", color = "blue")
-            ax1.plot(np.arange(len(self.model.loss_training)), self.model.loss_training, label = "loss", color = "blue")
-            ax1.tick_params(axis = "y")
-            ax2 = ax1.twinx()
-            ax2.scatter(np.arange(len(self.model.c_index_training)), self.model.c_index_training, label = "c_index", color = "orange")
-            ax2.plot(np.arange(len(self.model.c_index_training)), self.model.c_index_training, label = "c_index", color = "orange")
-            ax2.tick_params(axis='y')
-            ax2.set_ylabel('c_index') 
-            fig.tight_layout()
-            plt.savefig(f"fig_dump/fold_{foldn}_tr_loss_c_ind")
-        return 1
+            plot_training(train_metrics["loss"], train_metrics["c_index"], foldn, self.params["modeltype"])
+            
+        return {"train":train_metrics, "valid": valid_metrics}
 
 class CPHDNN(nn.Module):
     def __init__(self, data, hp_dict):
         super(CPHDNN, self).__init__()
         self.data = data
         self.params = hp_dict
-        self.setup_stack()
+        self.setup_stack(linear = self.params["linear"])
         self.optimizer = torch.optim.Adam(self.parameters(),  lr = self.params["lr"], weight_decay = self.params["wd"])
         # bunch of loggers 
         self.loss_training = []
@@ -302,8 +294,10 @@ class CPHDNN(nn.Module):
         c = functions.compute_c_index(test_t.detach().cpu().numpy(), test_e.detach().cpu().numpy(), out.detach().cpu().numpy())
         return out.detach().cpu().numpy(), l, c
 
-    def setup_stack(self):
-        
+    def setup_stack(self, linear = False):
+        if linear:
+            self.stack = nn.Linear(self.params["input_size"], 1).to(self.params["device"]) 
+            return
         stack = []
         print("Setting up stack... saving to GPU")
         

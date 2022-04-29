@@ -1,6 +1,7 @@
 from engines.datasets.base_datasets import SurvivalGEDataset
 from engines.models import cox_models
-
+import matplotlib.pyplot as plt
+import numpy as np
 import pdb 
 
 def load_data(args):
@@ -12,12 +13,15 @@ def load_data(args):
 
 
 
-def train_ridge_cph(train_data, nfolds = 5):  
-    model = cox_models.ridge_CPH(train_data)
+def train_cphdnn(train_data, nfolds = 5):  
+    model = cox_models.ridge_CPHDNN(train_data, modeltype="cphdnn")
     tr_metrics = model.train()
     pdb.set_trace()
-    
 
+def train_ridge_cph(train_data, nfolds = 5):
+    model = cox_models.ridge_CPHDNN(train_data, modeltype="ridge_cph")
+    tr_metrics = model.train()
+    pdb.set_trace()
 
 def run(args):
     ## Takes input 
@@ -27,6 +31,8 @@ def run(args):
     data.split_train_test(args.NFOLDS)
     # trains ridge cph
     train_c, train_l, model = train_ridge_cph(data, nfolds = args.NFOLDS)
+    #train_c, train_l, model = train_cphdnn(data, nfolds = args.NFOLDS)
+    
     # report training (c_index, loss)
     #plot_data(train_data)
     # tests

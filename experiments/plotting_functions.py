@@ -5,6 +5,22 @@ from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
 import os
 
+def plot_training(loss_training, c_index_training, foldn, model):
+    fig, ax1 = plt.subplots()
+    ax1.set_xlabel('steps')
+    ax1.set_ylabel('loss')
+    ax1.scatter(np.arange(len(loss_training)), loss_training, label = "loss", color = "blue")
+    ax1.plot(np.arange(len(loss_training)), loss_training, label = "loss", color = "blue")
+    ax1.tick_params(axis = "y")
+    ax2 = ax1.twinx()
+    ax2.scatter(np.arange(len(c_index_training)), c_index_training, label = "c_index", color = "orange")
+    ax2.plot(np.arange(len(c_index_training)), c_index_training, label = "c_index", color = "orange")
+    ax2.tick_params(axis='y')
+    ax2.set_ylabel('c_index') 
+    plt.title(f"Training loss and c_index thru optimization {model} on Leucegene data")
+    fig.tight_layout()
+    plt.savefig(f"fig_dump/{model}_fold_{foldn}_tr_loss_c_ind")
+    
 def plot_hi_risk_lo_risk(risk_scores, data, fig_outdir, proj_type, cohort, wd, perfo_list):
     plt.figure(figsize = (6,5))
     # split hi-risk lo-risk
