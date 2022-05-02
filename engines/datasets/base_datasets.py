@@ -151,6 +151,9 @@ class SurvivalGEDataset():
         self.learning = True
         self.gene_repertoire = self.process_gene_repertoire_data()
     
+    def new(self, x, y ):
+        return Data(x = x, y = y, gene_info=self.gene_repertoire)
+        
     def process_gene_repertoire_data(self):
         print("Loading and assembling Gene Repertoire...")
         # load in Gencode 37 repertoire (NOTE: no biotype present !!) 

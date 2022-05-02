@@ -93,17 +93,22 @@ class ridge_CPHDNN(CPH):
         self.hp_dict = HP_dict.generate_default(modeltype, data)
 
     def train(self):
+        vld_scores = []
         for foldn in range(self.hp_dict["nfolds"]):
             self.model = CPHDNN(self.data, hp_dict = self.hp_dict)
             print(self.model.params)
             train_c_index = self.model._train_cv(foldn)
             train_metrics = {"loss": self.model.loss_training, "c_index": self.model.c_index_training}
             out, l , c = self.model._valid_cv(foldn)
-            valid_metrics = {"out":out, "loss": l, "c_index": c}
             print("tr_metrics:", train_c_index)
-            print("vld_metrics:", l, c)
-            plot_training(train_metrics["loss"], train_metrics["c_index"], foldn, self.params["modeltype"])
-            
+            print("vld_metrics:", float(l), c)
+            plot_training(train_metrics["loss"], train_metrics["c_index"], foldn, self.hp_dict["modeltype"])
+            vld_scores.append(out)
+        vld_scores = np.concatenate(vld_scores)
+        aggr_bootstr_c_ind = functions.compute_aggregated_bootstrapped_c_index(vld_scores, self.data.y, n = 1000)
+        aggr_bootstr_c_ind.sort()
+        valid_metrics = {"scores": vld_scores, "c_index": aggr_bootstr_c_ind}
+        # bootstrap c_index: 
         return {"train":train_metrics, "valid": valid_metrics}
 
 class CPHDNN(nn.Module):
@@ -281,7 +286,6 @@ class CPHDNN(nn.Module):
         out = self.forward(valid_features_X)
         l = self.loss(out, valid_t, valid_e)
         c = functions.compute_c_index(valid_t.detach().cpu().numpy(),valid_e.detach().cpu().numpy(), out.detach().cpu().numpy())
-    
         return out.detach().cpu().numpy(), l , c
     
     def _test(self, test_data):

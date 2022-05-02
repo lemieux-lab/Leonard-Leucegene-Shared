@@ -16,6 +16,7 @@ import itertools as it
 import engines.models.utils as utils 
 from engines.models.obo.read import read_obo 
 
+
 proj_picker = {"TSNE": TSNE, "UMAP":umap.UMAP}
 def plot_factorized_embedding(ds, embedding, MSEloss, emb_size, e, cohort = "public", method = "UMAP"):
     # manage colors 
@@ -63,6 +64,15 @@ def plot_factorized_embedding(ds, embedding, MSEloss, emb_size, e, cohort = "pub
     plt.savefig(f"{fname}.png")
     plt.savefig(f"{fname}.pdf")
 
+
+def compute_aggregated_bootstrapped_c_index(scores, data, n=10000):
+    c_scores = []
+    nsamples=data.shape[0]
+    for i in tqdm(range (n), desc = f"bootstraping {n}..."):
+        idx = np.random.choice(np.arange(nsamples),nsamples, True)
+        c_ind_vld = compute_c_index(data["t"][idx],data["e"][idx], scores[idx])
+        c_scores.append(c_ind_vld)
+    return c_scores
 
 def compute_aggregated_c_index(scores, data):
     aggr_c_ind = compute_c_index(data.y["t"], data.y["e"], scores)

@@ -3,13 +3,15 @@ import torch
 from torch import nn 
 import numpy as np
 
+sample_WD = 10e-10
+sample_nepochs = 600
 def _ridge_CPH(train_data):
     params = defaultdict()
-    params["nepochs"] = 200
+    params["nepochs"] = sample_nepochs
     params["nfolds"] = 5
     params["input_size"] = train_data.folds[0].train.x.shape[1] # dataset dependent!
     # weight decay or L2
-    params["wd"] = np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
+    params["wd"] = sample_WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
     params["W"] = 1 # np.random.randint(3,2048) # V2 Reasonable
     # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
     params["nL"] = np.random.choice([nn.ReLU()]) 
@@ -23,11 +25,11 @@ def _ridge_CPH(train_data):
 
 def _CPHDNN(train_data):
     params = defaultdict()
-    params["nepochs"] = 200
+    params["nepochs"] = sample_nepochs
     params["nfolds"] = 5
     params["input_size"] = train_data.folds[0].train.x.shape[1] # dataset dependent!
     # weight decay or L2
-    params["wd"] = np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
+    params["wd"] = sample_WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
     params["W"] = 143 # np.random.randint(3,2048) # V2 Reasonable
     params["D"] = 2 # np.random.randint(2,4) # V2 Reasonable
     # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
