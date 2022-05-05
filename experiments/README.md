@@ -1,4 +1,4 @@
-# Experiment Book
+# Experiment Book V1
 ## FIG1
 ```
 # generate scores data, leave-one-out bootstraps c_index
@@ -43,8 +43,36 @@ python main.py --run_experiment p1 -C tcga_target_aml -O RES/FIGS/FIG4
 python3 main.py --run_experiment 2 -C lgn_intermediate -P PCA19 LSC17 -M CPH -N_REP 1000 -O RES/FIGS/FIG4
 python3 main.py --run_experiment 2 -C tcga_target_aml -P PCA20 LSC17 -M CPH -N_REP 1000
 -O RES/FIGS/FIG4
+```
+## Experiment Book V1.5
 
+Dataset:
+* Leucegene pronostic
 
+Controls: 
+* scoring by cytogenetic risk
+* ridge-CPH from lifelines
+* Cox-MLP from cox-nnet
+
+Tested architectures:
+* ridge-CPH own
+* Cox-MLP own
+
+Gene experession input:
+* Full transcriptome input
+* PCA* (with optimal nb PCs)
+* LSC17
+
+Regularisation:
+* L2
+* Dropout 
+
+Output: 
+* concordance index (bootsrapped 10K)
+* survival curves (3 groups)
+
+```
+python3 main.py --run_experiment 3 -M ridge_cph_lifelines ridge_cph cphdnn cphdnn_coxnnet -P LSC17 full PCA -NDIMs 1 300 -O RES/RECOMB/FIG1 
 ```
 
 

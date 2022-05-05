@@ -184,9 +184,7 @@ default: OFF
 python3 main.py -TSNE -N_TSNE <N>
 default: 1
 ```
-
-
-
+   
 ### 2.6 Plot Results 
 
 * Loads in the PCA, t-SNE data if they exist, else performs PCA and T-SNE analyses. 

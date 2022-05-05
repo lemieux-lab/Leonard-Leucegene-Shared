@@ -3,6 +3,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt 
 from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
 import lifelines
 import numpy as np
 import pandas as pd
@@ -65,6 +66,16 @@ def plot_factorized_embedding(ds, embedding, MSEloss, emb_size, e, cohort = "pub
     plt.savefig(f"{fname}.pdf")
 
 
+def compute_pca_loadings(data, pca_n):
+    """
+    From sklearn source code 
+    """
+    if pca_n is None: return None
+    pca = PCA()
+    pca.fit(data)
+
+    return {"components": pca.components_[:pca_n], "mean" : pca.mean_}
+
 def compute_aggregated_bootstrapped_c_index(scores, data, n=10000):
     c_scores = []
     nsamples=data.shape[0]
@@ -72,7 +83,11 @@ def compute_aggregated_bootstrapped_c_index(scores, data, n=10000):
         idx = np.random.choice(np.arange(nsamples),nsamples, True)
         c_ind_vld = compute_c_index(data["t"][idx],data["e"][idx], scores[idx])
         c_scores.append(c_ind_vld)
-    return c_scores
+    c_scores = np.sort(c_scores)
+    c_ind_med = np.median(c_scores)
+    c_ind_min = c_scores[int(n*0.05)]
+    c_ind_max = c_scores[int(n*0.95)]
+    return c_scores, (c_ind_med, c_ind_min, c_ind_max)
 
 def compute_aggregated_c_index(scores, data):
     aggr_c_ind = compute_c_index(data.y["t"], data.y["e"], scores)

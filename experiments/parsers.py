@@ -9,6 +9,7 @@ def parse_arguments():
     parser.add_argument("-N_REP", dest = "NREP_TECHN", default = 10, type = int, help = "number of technical replicates") 
     parser.add_argument("-IN_D", dest = "INPUT_DIMS", default = [17,18], type = int, nargs = "+", help = "range of number of input dimensions to test (min,max) default= [17,18]")
     parser.add_argument("-WD", dest = "WEIGHT_DECAY", default = 1e-3, type = float, help = "l2 regularization strength, default = 0.001")
+    parser.add_argument("-BN", dest = "bootstr_n", default = 1000, type = int, help = "bootstrap ")
     # for the input projection types
     help = "list of projection types for survival prediction and further analyses default = [PCA, SVD, LSC17, RPgauss, RPsparse, RSelect]"
     parser.add_argument("-P", dest = "PROJ_TYPES", type = str, nargs = "+", default = ["PCA", "SVD", "LSC17", "RPgauss", "RPsparse", "RSelect"], help= help)
@@ -24,7 +25,7 @@ def parse_arguments():
     parser.add_argument("-FIXED_EMB", dest = "EMB_FILE", type = str, default = "Data/emb125_MLP25.csv", help = "name of embedding file used for fixed embedding mode CPH training prediction.")
     parser.add_argument("-N_OPTIM", dest = "NREP_OPTIM", default = 1, type = int, help = "number of optimizations for Hyper parameters")
     parser.add_argument("-N_FOLDS", dest = "NFOLDS", default = 5, type = int, help = "number of crossvalidation folds") 
-    parser.add_argument("-E", dest = "NEPOCHS", default = 1, type = int, help = "number of epochs for optim of DNN models")
+    parser.add_argument("-E", dest = "NEPOCHS", default = 200, type = int, help = "number of epochs for optim of DNN models")
     # for the projection type of the background
     help = "projection type of background distribution of accuracies, default =RPsparse"
     parser.add_argument("-P_BG", dest = "BG_PROJ_TYPE", type = str, default ="RPsparse", help= help)
