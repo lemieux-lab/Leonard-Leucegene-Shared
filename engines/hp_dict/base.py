@@ -36,7 +36,7 @@ class HP_dict:
         params["input_size"] = train_data.folds[0].train.x.shape[1] # dataset dependent!
         # weight decay or L2
         params["wd"] = self.WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
-        params["W"] = 143 # np.random.randint(3,2048) # V2 Reasonable
+        params["W"] = 5 # np.random.randint(3,2048) # V2 Reasonable
         params["D"] = 2 # np.random.randint(2,4) # V2 Reasonable
         # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
         params["nL"] = np.random.choice([nn.ReLU()]) 

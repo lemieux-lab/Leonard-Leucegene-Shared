@@ -67,12 +67,14 @@ class CPH:
         self.pca_n = pca_n
 
     def cross_validation(self):
-        vld_scores = []        
+        vld_scores = []    
+        train_c_indices = []    
         for foldn in tqdm(range(self.params["nfolds"]), desc = f"{self.params['modeltype']} INsize: {self.params['input_size']}"):
             # get PCA loadings for input transf. if needed 
             pca = functions.compute_pca_loadings(self.data.folds[foldn].train.x, self.pca_n)
             # train model on fold
             train_c_index = self._train_on_fold(foldn, transform_input = pca)
+            train_c_indices.append(train_c_index)
             # inference on foldn vld set
             out = self._valid_on_fold(foldn, transform_input = pca)
             #print("tr_metrics:", train_c_index)
@@ -81,7 +83,8 @@ class CPH:
             vld_scores.append(out)
         vld_scores = np.concatenate(vld_scores)
         c_scores, metrics = functions.compute_aggregated_bootstrapped_c_index(vld_scores, self.data.y, n = self.params["bootstrap_n"])
-        print(metrics)
+        print("training c indices: ", np.round(train_c_indices, 2))
+        print("valid c indices (aggregated): ", metrics)
         return c_scores 
 
     def _train_on_fold(self, fold_index, transform_input):
@@ -92,8 +95,9 @@ class CPH:
             new_df = pd.DataFrame(np.dot(fold_train_data.x.values - transform_input["mean"], transform_input["components"].T), index = fold_train_data.x.index)
             fold_train_data.x = new_df
         # performs training of model
-        self.model._train(fold_train_data)
-        
+        train_metrics = self.model._train(fold_train_data)
+        return train_metrics
+
     def _valid_on_fold(self, fold_index, transform_input):
         # gets current fold data
         fold_vld_data = self.data.folds[fold_index].test
