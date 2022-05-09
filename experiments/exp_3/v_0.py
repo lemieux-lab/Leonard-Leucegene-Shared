@@ -34,18 +34,18 @@ def run(args):
     cyt_levels = [{"intermediate cytogenetics":1, "adverse cytogenetics": 2, "favorable cytogenetics":0 }[level] for level in cyt["Cytogenetic risk"]] 
     cyt["levels"] = cyt_levels
     c_ind = functions.compute_c_index(CDS.y["t"], CDS.y["e"], cyt.levels)
-    #cyt_c_scores, cyt_metrics  = functions.compute_aggregated_bootstrapped_c_index(cyt.levels, CDS.y, n=args.bootstr_n)
+    cyt_c_scores, cyt_metrics  = functions.compute_aggregated_bootstrapped_c_index(cyt.levels, CDS.y, n=args.bootstr_n)
     #print(cyt_metrics)
-    #scores_matrix.append(("cyto.risk_scores", cyt_c_scores))
+    scores_matrix.append(("cyto.risk_scores", cyt_c_scores))
     # take PCA300 (loadings only)
     for model in args.MODEL_TYPES:
-        # scores_matrix.append((f"LSC17_{model}_scores", cox_models.evaluate(model, LSC17, HyperParams)))
-        # scores_matrix.append((f"CDS_{model}_scores", cox_models.evaluate(model, CDS, HyperParams)))
+        scores_matrix.append((f"LSC17_{model}_scores", cox_models.evaluate(model, LSC17, HyperParams)))
+        scores_matrix.append((f"CDS_{model}_scores", cox_models.evaluate(model, CDS, HyperParams)))
         for redux_size in [25]:
             scores_matrix.append((f"PCA_{redux_size}_{model}_scores", cox_models.evaluate(model, CDS, HyperParams, pca_n = redux_size)))
     
             scores = pd.DataFrame(dict(scores_matrix))
-            scores.to_csv(f"RES/POSTER_RECOMB/data/{run_id}results_2.txt")
+            scores.to_csv(f"RES/POSTER_RECOMB/data/{timestamp}_results.txt")
     ## Takes input 
     # get full transcr. profiles 
     pdb.set_trace()

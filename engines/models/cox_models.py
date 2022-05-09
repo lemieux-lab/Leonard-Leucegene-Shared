@@ -14,19 +14,22 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA 
 
 # METHODS
-def evaluate(model_type, data, HyperParams, pca_n = None):
-    # split training / valid
-    data.split_train_test(HyperParams.nfolds)
-    # generate Hyper-Parameter dict specific to model type
-    params = HyperParams.generate_default(model_type, data)
+def evaluate(data, params, pca_n = None):
+    
+    
     # correct input size
     if pca_n : params["input_size"] = pca_n
     # instanciate new model container 
-    model = CPH(model_type, data, params, pca_n)
-    # train model by cross_validation
-    metrics = model.cross_validation()
-    # bootstrap c index and return scores
-    return metrics 
+    model = CPH( data, params, pca_n)
+    # - train models through cross_validation 
+    # - return aggregated predicted risk scores list
+    # - return aggr. bootstrapped c_indices scores 
+    c_scores, risk_scores = model.cross_validation()
+    # get survival curves data
+    surv_tbl = pd.DataFrame(data.y) # create copy of target features data 
+    surv_tbl["pred_risk"] = risk_scores
+    # return scores and survival curves data
+    return c_scores, surv_tbl
 
 class ridge_cph_lifelines:
     def __init__(self, params) -> None:
@@ -38,7 +41,9 @@ class ridge_cph_lifelines:
         self.train_ds["T"] = data.y["t"]
         self.train_ds["E"] = data.y["e"]
         self.model = self.model.fit(self.train_ds, duration_col = "T", event_col = "E")
-    
+        c_ind = functions.compute_c_index(data.y["t"], data.y["e"], self.model.predict_log_partial_hazard(data.x))
+        return c_ind 
+
     def _valid(self, data):
         self.vld_features= data.x
         self.vld_t = data.y["t"]
@@ -58,10 +63,11 @@ class ridge_cph:
 
 # CPH container class       
 class CPH:
-    def __init__(self, model_type, data, params, pca_n):
+    def __init__(self, data, params, pca_n):
         picker = {"ridge_cph_lifelines": ridge_cph_lifelines, 
         "cphdnn": CPHDNN}
-        self.model = picker[model_type](params)
+        self.model_type = params["modeltype"]
+        self.model = picker[self.model_type](params)
         self.data = data
         self.params = params
         self.pca_n = pca_n
@@ -85,7 +91,8 @@ class CPH:
         c_scores, metrics = functions.compute_aggregated_bootstrapped_c_index(vld_scores, self.data.y, n = self.params["bootstrap_n"])
         print("training c indices: ", np.round(train_c_indices, 2))
         print("valid c indices (aggregated): ", metrics)
-        return c_scores 
+        
+        return c_scores, vld_scores
 
     def _train_on_fold(self, fold_index, transform_input):
         # gets current fold data
@@ -95,8 +102,8 @@ class CPH:
             new_df = pd.DataFrame(np.dot(fold_train_data.x.values - transform_input["mean"], transform_input["components"].T), index = fold_train_data.x.index)
             fold_train_data.x = new_df
         # performs training of model
-        train_metrics = self.model._train(fold_train_data)
-        return train_metrics
+        train_c = self.model._train(fold_train_data)
+        return train_c
 
     def _valid_on_fold(self, fold_index, transform_input):
         # gets current fold data
