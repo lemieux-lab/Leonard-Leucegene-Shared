@@ -24,12 +24,14 @@ def evaluate(data, params, pca_n = None):
     # - train models through cross_validation 
     # - return aggregated predicted risk scores list
     # - return aggr. bootstrapped c_indices scores 
-    c_scores, risk_scores = model.cross_validation()
+    c_index_metrics, c_scores, risk_scores = model.cross_validation()
     # get survival curves data
     surv_tbl = pd.DataFrame(data.y) # create copy of target features data 
     surv_tbl["pred_risk"] = risk_scores
+    # store c index metrics
+    params["c_index_metrics"] = c_index_metrics
     # return scores and survival curves data
-    return c_scores, surv_tbl
+    return c_index_metrics, c_scores, surv_tbl
 
 class ridge_cph_lifelines:
     def __init__(self, params) -> None:
@@ -92,7 +94,7 @@ class CPH:
         print("training c indices: ", np.round(train_c_indices, 2))
         print("valid c indices (aggregated): ", metrics)
         
-        return c_scores, vld_scores
+        return metrics, c_scores,  vld_scores
 
     def _train_on_fold(self, fold_index, transform_input):
         # gets current fold data
