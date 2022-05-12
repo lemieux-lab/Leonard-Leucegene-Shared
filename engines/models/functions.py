@@ -65,6 +65,16 @@ def plot_factorized_embedding(ds, embedding, MSEloss, emb_size, e, cohort = "pub
     plt.savefig(f"{fname}.png")
     plt.savefig(f"{fname}.pdf")
 
+def compute_cyto_risk_c_index(scores, target, gamma = 0.01, n = 10):
+    c_scores = []
+    for i in tqdm(range(n)):
+        noise_risk_scores =  scores + np.random.normal(gamma, gamma, size = len(scores))
+        c_scores.append(compute_c_index(noise_risk_scores, target, method = "own"))
+    c_scores = np.sort(c_scores)
+    c_ind_med = np.median(c_scores)
+    c_ind_min = c_scores[int(n*0.05)]
+    c_ind_max = c_scores[int(n*0.95)]
+    return c_scores, (c_ind_med, c_ind_min, c_ind_max)
 
 def compute_pca_loadings(data, pca_n):
     """
@@ -81,7 +91,7 @@ def compute_aggregated_bootstrapped_c_index(scores, data, n=10000):
     nsamples=data.shape[0]
     for i in tqdm(range (n), desc = f"bootstraping {n}..."):
         idx = np.random.choice(np.arange(nsamples),nsamples, True)
-        c_ind_vld = compute_c_index(data["t"][idx],data["e"][idx], scores[idx])
+        c_ind_vld = compute_c_index(scores[idx], data.iloc[idx,:], method = "own")
         c_scores.append(c_ind_vld)
     c_scores = np.sort(c_scores)
     c_ind_med = np.median(c_scores)
@@ -89,15 +99,49 @@ def compute_aggregated_bootstrapped_c_index(scores, data, n=10000):
     c_ind_max = c_scores[int(n*0.95)]
     return c_scores, (c_ind_med, c_ind_min, c_ind_max)
 
-def compute_aggregated_c_index(scores, data):
-    aggr_c_ind = compute_c_index(data.y["t"], data.y["e"], scores)
-    return aggr_c_ind
+def compute_c_index(scores, data, method = "lifelines"):
+    def _lifelines(scores,data):
+        aggr_c_ind = lifelines.utils.concordance_index(data["t"], scores, data["e"])
+        if aggr_c_ind < 0.5:
+            aggr_c_ind = lifelines.utils.concordance_index(data["t"], -scores, data["e"])
+            
+        return aggr_c_ind
+    
+    def _own_it(scores, data):
+        # iterative version of c index computations
+        ### VERY SLOW
+        n = len(scores)
+        s = 0
+        ap = 0
+        for i in range(n):
+            for j in range(n):
+                # check if admissible pair
+                if (data["t"][i] < data["t"][j]) and (data["e"][i]):
+                    ap += 1
+                    if scores[i] > scores[j]:
+                        s += 1
+                    if scores[i] == scores[j]:
+                        s += 0.5
+        c_index = float(s) / ap
+        return c_index
 
-def compute_c_index(T,E, partial_hazards):
-    c_index = lifelines.utils.concordance_index(T, partial_hazards,E)
-    if c_index < 0.5 :
-        c_index = lifelines.utils.concordance_index(T, -partial_hazards,E)
-    return c_index
+    def _own_vec(scores, data):
+        # vector computations of c index 
+        # FAST
+        n = len(scores)
+        censoring = np.array(data["e"] == 1, dtype = int).reshape((1,n))
+        surv_times = np.array(data["t"]).reshape((1,n))
+        partial_hazards = np.array(scores).reshape((1,n))
+        concordant_pairs = partial_hazards > partial_hazards.T
+        tied_pairs = (partial_hazards == partial_hazards.T).sum(0) - np.ones(n)
+        admissable_pairs = surv_times < surv_times.T
+        c_ind = (censoring * admissable_pairs * concordant_pairs).sum() + (0.5 * tied_pairs).sum()
+        c_ind = float(c_ind) / ((censoring * admissable_pairs.sum(0)).sum() + tied_pairs.sum())
+        # censoring * surv_times > surv_times.T
+        return c_ind
+
+    if method == "lifelines": return _lifelines(scores, data)
+    elif method == "own": return _own_vec(scores, data)
 
 def compute_cox_nll(t, e, out): 
     # sort indices 

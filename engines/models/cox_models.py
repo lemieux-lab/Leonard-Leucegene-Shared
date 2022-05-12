@@ -43,7 +43,7 @@ class ridge_cph_lifelines:
         self.train_ds["T"] = data.y["t"]
         self.train_ds["E"] = data.y["e"]
         self.model = self.model.fit(self.train_ds, duration_col = "T", event_col = "E")
-        c_ind = functions.compute_c_index(data.y["t"], data.y["e"], self.model.predict_log_partial_hazard(data.x))
+        c_ind = functions.compute_c_index(self.model.predict_log_partial_hazard(data.x), data.y, method = "own")
         return c_ind 
 
     def _valid(self, data):
