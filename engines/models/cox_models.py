@@ -29,7 +29,7 @@ def evaluate(data, params, pca_n = None):
     surv_tbl = pd.DataFrame(data.y) # create copy of target features data 
     surv_tbl["pred_risk"] = risk_scores
     # store c index metrics
-    params["c_index_metrics"] = c_index_metrics
+    params["c_index_metrics"] = c_index_metrics[0]
     # return scores and survival curves data
     return c_index_metrics, c_scores, surv_tbl
 

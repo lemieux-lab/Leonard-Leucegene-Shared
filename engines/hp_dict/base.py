@@ -26,7 +26,7 @@ class HP_dict:
         # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
         params["nL"] = np.random.choice([nn.ReLU()]) 
         params["ARCH"] = {"W": [params["input_size"],params["W"]], "nl": None}
-        params["pca_t"] = False
+        params["input_type"] = None
         params["device"] = "cuda:0"
         params["lr"] = 1e-4
         params["linear"] = True
@@ -55,7 +55,7 @@ class HP_dict:
             "nL": np.array([params["nL"] for i in range(params["D"])]),
             # "dp": np.ones(self.params["D"]) * self.params["dp"] 
             }
-        params["pca_t"] = False
+        params["input_type"] = None
         params["device"] = "cuda:0"
         params["lr"] = 1e-4
         params["linear"]  = False
@@ -77,7 +77,7 @@ class HP_dict:
         # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
         params["nL"] = 0
         params["ARCH"] = None
-        params["pca_t"] = False
+        params["input_type"] = "cytogenetic risk"
         params["device"] = None
         params["lr"] = None
         params["linear"]  = False
@@ -99,7 +99,28 @@ class HP_dict:
         # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
         params["nL"] = 0
         params["ARCH"] = None
-        params["pca_t"] = False
+        params["input_type"] = "LSC17"
+        params["device"] = None
+        params["lr"] = None
+        params["linear"]  = True
+        params["modeltype"] = "ridge_cph_lifelines"
+        params["bootstrap_n"] = self.bootstr_n
+        return params
+    def _ridge_cph_lifelines_PCA(self, data):
+        params = defaultdict()
+        params["model_id"] = hashlib.sha1(str(datetime.now()).encode()).hexdigest() # create random id for storage purposes 
+        params["nepochs"] = 0
+        params["nfolds"] = self.nfolds
+        params["cohort"] = self.cohort
+        params["input_size"] = data.folds[0].train.x.shape[1] # dataset dependent!
+        # weight decay or L2
+        params["wd"] = self.WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
+        params["W"] = 0 # np.random.randint(3,2048) # V2 Reasonable
+        params["D"] = 0 # np.random.randint(2,4) # V2 Reasonable
+        # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
+        params["nL"] = 0
+        params["ARCH"] = None
+        params["input_type"] = "PCA"
         params["device"] = None
         params["lr"] = None
         params["linear"]  = True
@@ -109,9 +130,9 @@ class HP_dict:
 
     def generate_default(self, model_type, data):
         picker = {
-            "ridge_cph_lifelines": self._ridge_cph_lifelines,
+            "ridge_cph_lifelines_PCA": self._ridge_cph_lifelines_PCA,
             "ridge_cph_lifelines_LSC17": self._ridge_cph_lifelines_lsc17,
-            "ridge_cph": self._ridge_cph_lifelines,
+            "ridge_cph_lifelines_CDS": self._ridge_cph_lifelines,
             "cphdnn": self._CPHDNN,
             "cytogenetic_risk": self._cyto_risk
         }
