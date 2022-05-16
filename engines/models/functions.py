@@ -68,7 +68,7 @@ def plot_factorized_embedding(ds, embedding, MSEloss, emb_size, e, cohort = "pub
 def compute_cyto_risk_c_index(scores, target, gamma = 0.01, n = 10):
     c_scores = []
     for i in tqdm(range(n)):
-        noise_risk_scores =  scores + np.random.normal(gamma, gamma, size = len(scores))
+        noise_risk_scores =  scores + np.random.normal(0, gamma, size = len(scores))
         c_scores.append(compute_c_index(noise_risk_scores, target, method = "own"))
     c_scores = np.sort(c_scores)
     c_ind_med = np.median(c_scores)
@@ -135,8 +135,9 @@ def compute_c_index(scores, data, method = "lifelines"):
         concordant_pairs = partial_hazards > partial_hazards.T
         tied_pairs = (partial_hazards == partial_hazards.T).sum(0) - np.ones(n)
         admissable_pairs = surv_times < surv_times.T
-        c_ind = (censoring * admissable_pairs * concordant_pairs).sum() + (0.5 * tied_pairs).sum()
+        c_ind = (censoring * admissable_pairs * concordant_pairs).sum() + (0.5 * tied_pairs.sum())
         c_ind = float(c_ind) / ((censoring * admissable_pairs.sum(0)).sum() + tied_pairs.sum())
+        
         # censoring * surv_times > surv_times.T
         return c_ind
 
