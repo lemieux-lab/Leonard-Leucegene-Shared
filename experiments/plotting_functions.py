@@ -1,9 +1,119 @@
 import matplotlib.pyplot as plt
+plt.rcParams["svg.fonttype"] = "none" # text rendering in figures output 
 import pdb 
 import numpy as np
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
 import os
+
+def plot_tsne(tsne_data, groups_df, groups, basepath):
+    tsne = None 
+    # plot tsne
+    return tsne
+
+def plot_overfit(data, basepath):
+    fig, ax = plt.subplots()
+    return ax
+
+def plot_c_surv(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
+    c_scores = cox_output[1]
+    pred_data = cox_output[2]
+    HyperParams = cox_output[3]
+    plt.figure()
+    kmf = KaplanMeierFitter()
+    median_score = np.median(pred_data["pred_risk"])
+
+    sorted_scores = np.sort(pred_data["pred_risk"])
+    nsamples = len(sorted_scores)
+    #groups = [["high risk", "low risk"][int(sample >= median_score)] for sample in pred_data["pred_risk"]]
+
+    nb_hi = int(float(nsamples / 2))
+    nc_hi = (pred_data["e"][pred_data["pred_risk"] >= median_score] == 0).sum()
+    nc_lo = (pred_data["e"][pred_data["pred_risk"] < median_score] == 0).sum()
+    groups = []
+    for score in pred_data["pred_risk"]:
+        if score >= median_score: groups.append(f"high. risk (n:{nb_hi} c:{nc_hi})")
+        else: groups.append(f"low risk. risk (n:{nsamples - nb_hi} c:{nc_lo} )")
+
+    pred_data["group"] = groups 
+    fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7,6))
+    colors = ["red","blue", "grey"]
+    print("plotting ...")
+    for i, (name, grouped_df) in enumerate( pred_data.groupby("group")):     
+        kmf.fit(grouped_df["t"], grouped_df["e"], label=name)
+        kmf.plot_survival_function(ax = ax, color = colors[i], show_censors =True, censor_styles = {"ms": 6, "marker": "x"})
+
+    model_type = HyperParams["modeltype"]
+    cohort = HyperParams["cohort"]
+    model_id = HyperParams["model_id"]
+    input_size = HyperParams["input_size"]
+    c_ind = HyperParams["c_index_metrics"]
+    input_type = HyperParams["input_type"]
+    surv_outpath = os.path.join(surv_curves_outdir, f"5_{input_type}_{model_type}_{cohort}_{input_size}")
+    plt.title(f"Survival curves - model_type: {model_type}")
+    ax.set_xlabel(f'''timeline 
+    dataset: {cohort}, Input type: {input_type}
+    input_dim: {input_size} c_index: {np.round(c_ind,3)}''')
+    ax.grid(visible = True, alpha = 0.5, linestyle = "--")
+    plt.tight_layout()
+    plt.savefig(f"{surv_outpath}.svg")
+
+def plot_correlations(data1,data2, basepath):
+    fig, ax = plt.subplots()
+    return ax, basepath
+
+def plot_variance(pca_data, basepath):
+    fig, ax = plt.subplots()
+    return ax, basepath
+
+def plot_c_surv_3_groups(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
+    c_scores = cox_output[1]
+    pred_data = cox_output[2]
+    HyperParams = cox_output[3]
+    plt.figure()
+    kmf = KaplanMeierFitter()
+    median_score = np.median(pred_data["pred_risk"])
+
+    sorted_scores = np.sort(pred_data["pred_risk"])
+    nsamples = len(sorted_scores)
+    nb_fav = group_weights[0]
+    nb_int = group_weights[1]
+    int_sep = sorted_scores[nb_fav]
+    adv_sep = sorted_scores[nb_fav + nb_int] 
+    nc_fav = (pred_data["e"][pred_data["pred_risk"] < int_sep] == 0).sum()
+    nc_int = (pred_data["e"][pred_data["pred_risk"] < adv_sep] == 0).sum() - nc_fav
+    nc_adv = (pred_data["e"] == 0).sum() - nc_fav - nc_int
+    groups = []
+    for score in pred_data["pred_risk"]:
+        if score < int_sep: groups.append(f"fav. risk (n:{nb_fav} c:{nc_fav})")
+        elif score < adv_sep: groups.append(f"int. risk (n:{nb_int} c:{nc_int} )")
+        else: groups.append(f"adv. risk (n:{nsamples - nb_fav - nb_int} c:{nc_adv} )")
+
+    pred_data["group"] = groups 
+    fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7,6))
+    colors = ["red","blue", "grey"]
+    print("plotting ...")
+    for i, (name, grouped_df) in enumerate( pred_data.groupby("group")):     
+        kmf.fit(grouped_df["t"], grouped_df["e"], label=name)
+        kmf.plot_survival_function(ax = ax, color = colors[i], show_censors =True, censor_styles = {"ms": 6, "marker": "x"})
+
+    model_type = HyperParams["modeltype"]
+    cohort = HyperParams["cohort"]
+    model_id = HyperParams["model_id"]
+    input_size = HyperParams["input_size"]
+    c_ind = HyperParams["c_index_metrics"]
+    surv_outpath = os.path.join(surv_curves_outdir, f"{model_type}_{cohort}_{input_size}_{model_id}")
+    plt.title(f"Survival curves - model_type: {model_type}")
+    ax.set_xlabel(f'''timeline 
+    dataset: {cohort}, input_dim: {input_size} 
+    c_index: {np.round(c_ind,3)}''')
+    ax.grid(visible = True, alpha = 0.5, linestyle = "--")
+    plt.tight_layout()
+    plt.savefig(f"{surv_outpath}.svg")
+
+def plot_cm(data1, data2, basepath):
+    fig, ax = plt.subplots()
+    return ax, basepath
 
 def plot_training(loss_training, c_index_training, foldn, model):
     fig, ax1 = plt.subplots()

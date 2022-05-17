@@ -31,7 +31,7 @@ def evaluate(data, params, pca_n = None):
     # store c index metrics
     params["c_index_metrics"] = c_index_metrics[0]
     # return scores and survival curves data
-    return c_index_metrics, c_scores, surv_tbl
+    return (c_index_metrics, c_scores, surv_tbl, params)
 
 class ridge_cph_lifelines:
     def __init__(self, params) -> None:
@@ -77,7 +77,7 @@ class CPH:
     def cross_validation(self):
         vld_scores = []    
         train_c_indices = []    
-        for foldn in tqdm(range(self.params["nfolds"]), desc = f"{self.params['modeltype']} INsize: {self.params['input_size']}"):
+        for foldn in tqdm(range(self.params["nfolds"]), desc = f"{self.params['cohort']}; {self.params['modeltype']}, INsize: {self.params['input_size']}"):
             # get PCA loadings for input transf. if needed 
             pca = functions.compute_pca_loadings(self.data.folds[foldn].train.x, self.pca_n)
             # train model on fold

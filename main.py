@@ -14,6 +14,7 @@ class ExperimentLoader:
         from experiments.plots_1 import v_0 as plot_1_0
         from experiments.exp_3 import v_0 as exp_3_0
         from experiments.exp_4 import v_0 as exp_4_0
+        from experiments import poster 
         self.experiment_dict = {
             "1": exp_1_5,
             "1.5": exp_1_5,
@@ -21,6 +22,7 @@ class ExperimentLoader:
             "p1": plot_1_0,
             "3": exp_3_0,
             "4": exp_4_0,
+            "poster": poster,
         }
     def load_experiment(self, exp_vn):
         """Load and returns an Experiment Object"""

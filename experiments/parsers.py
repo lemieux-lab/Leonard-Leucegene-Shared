@@ -4,7 +4,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run_experiment", dest = "EXP", type = str, default = "3", help = "experiment number and version")
     # add control arguments
-    parser.add_argument("-O", dest = "OUTPATH", type = str, default = "RES/current/", help = "generated output filepath, (will override existing)")
+    parser.add_argument("-O", dest = "OUTPATH", type = str, default = "RES/POSTER/", help = "generated output filepath, (will override existing)")
     parser.add_argument("-C", dest = "COHORT", type = str, default = ["lgn_pronostic"], help = "public: \tThe Leucegene public subset = 403 samples. Curated samples subset to complete different feature prediction on.\n pronostic: The Leucegene pronostic subset = 300 samples. Curated samples subset that was selected to perform survival analysis on. \n lgn_intermediate: From The Leucegene pronostic subset, intermediate cytogenetic risk, n samples = 177. \n tcga_target_aml")
     parser.add_argument("-N_REP", dest = "NREP_TECHN", default = 10, type = int, help = "number of technical replicates") 
     parser.add_argument("-IN_D", dest = "INPUT_DIMS", default = [17, 18, 1], type = int, nargs = "+", help = "range of number of input dimensions to test (min,max, step) default= [17,18,1]")

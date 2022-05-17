@@ -11,14 +11,13 @@ class HP_dict:
         self.nepochs = args.NEPOCHS
         self.bootstr_n = args.bootstr_n
         self.nfolds = args.NFOLDS
-        self.cohort = args.COHORT
 
     def _ridge_cph_lifelines(self, train_data):
         params = defaultdict()
         params["model_id"] = hashlib.sha1(str(datetime.now()).encode()).hexdigest() # create random id for storage purposes 
         params["nepochs"] = self.nepochs
         params["nfolds"] = self.nfolds
-        params["cohort"] = self.cohort
+        params["cohort"] = train_data.name
         params["input_size"] = train_data.folds[0].train.x.shape[1] # dataset dependent!
         # weight decay or L2
         params["wd"] = self.WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
@@ -39,7 +38,7 @@ class HP_dict:
         params["model_id"] = hashlib.sha1(str(datetime.now()).encode()).hexdigest() # create random id for storage purposes 
         params["nepochs"] = self.nepochs
         params["nfolds"] = self.nfolds
-        params["cohort"] = self.cohort
+        params["cohort"] = train_data.name
         params["input_size"] = train_data.folds[0].train.x.shape[1] # dataset dependent!
         # weight decay or L2
         params["wd"] = self.WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
@@ -68,7 +67,7 @@ class HP_dict:
         params["model_id"] = hashlib.sha1(str(datetime.now()).encode()).hexdigest() # create random id for storage purposes 
         params["nepochs"] = 0
         params["nfolds"] = 0
-        params["cohort"] = self.cohort
+        params["cohort"] = data.name
         params["input_size"] = 0 # dataset dependent!
         # weight decay or L2
         params["wd"] = 0 #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
@@ -90,7 +89,7 @@ class HP_dict:
         params["model_id"] = hashlib.sha1(str(datetime.now()).encode()).hexdigest() # create random id for storage purposes 
         params["nepochs"] = 0
         params["nfolds"] = self.nfolds
-        params["cohort"] = self.cohort
+        params["cohort"] = data.name
         params["input_size"] = data.folds[0].train.x.shape[1] # dataset dependent!
         # weight decay or L2
         params["wd"] = self.WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
@@ -111,7 +110,7 @@ class HP_dict:
         params["model_id"] = hashlib.sha1(str(datetime.now()).encode()).hexdigest() # create random id for storage purposes 
         params["nepochs"] = 0
         params["nfolds"] = self.nfolds
-        params["cohort"] = self.cohort
+        params["cohort"] = data.name
         params["input_size"] = data.folds[0].train.x.shape[1] # dataset dependent!
         # weight decay or L2
         params["wd"] = self.WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
