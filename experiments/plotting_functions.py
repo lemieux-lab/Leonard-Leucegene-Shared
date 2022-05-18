@@ -4,6 +4,7 @@ import pdb
 import numpy as np
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
+from sklearn.metrics import confusion_matrix
 import os
 
 def plot_tsne(tsne_data, groups_df, groups, basepath):
@@ -58,22 +59,44 @@ def plot_c_surv(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
     plt.tight_layout()
     plt.savefig(f"{surv_outpath}.svg")
 
-def plot_correlations(data1,data2, basepath):
-    fig, ax = plt.subplots()
-    return ax, basepath
+def plot_correlations(corr_tbl,columns, proj_type, fig_path, figsize):
+    pdb.set_trace()
+    #fig_outfile =os.path.join(fig_path, f"corr_cf_{proj_type}_{cohort}_heatmap.svg" )
+    #mini_fig_outfile = os.path.join(fig_path, f"corr_cf_{proj_type}_{cohort}_heatmap_mini.svg" )
+        
+    # filter columns
+    dat = corr_tbl[columns].iloc[::-1]
+    fig, ax = plt.subplots(figsize = figsize)
+    im = ax.pcolor(abs(dat), vmin = 0, vmax = 1, cmap=plt.cm.Blues)
+    for (i, j), z in np.ndenumerate(dat):
+        ax.text(j + 0.5, i + 0.5, '{:0.2f}'.format(z), ha='center', va='center')
+
+    ax.set_yticklabels(dat.index)
+    ax.set_xticks(np.arange(dat.shape[1]) + 0.5, minor=False)
+    ax.set_yticks(np.arange(dat.shape[0]) + 0.5, minor=False)
+    ax.xaxis.tick_top()
+    ax.set_xticklabels(dat.columns, rotation = 45)
+    fig.colorbar(im)
+    plt.savefig(os.path.join(fig_path, f"6_corr_{proj_type}_CF.svg"))
+    dat = dat.iloc[::-1,:]
+    fig, ax = plt.subplots(figsize = figsize)
+    im = ax.imshow(abs(dat), vmin = 0, vmax = 1, cmap=plt.cm.Blues)
+    ax.set_yticklabels(dat.index)
+    ax.set_xticks(np.arange(dat.shape[1]), minor=False)
+    ax.set_yticks(np.arange(dat.shape[0]), minor=False)
+    ax.xaxis.tick_top()
+    ax.set_xticklabels(dat.columns, rotation = 45)
+    fig.colorbar(im)
+    #plt.savefig(mini_fig_outfile)
+    return 
 
 def plot_variance(pca_data, basepath):
     fig, ax = plt.subplots()
     return ax, basepath
 
-def plot_c_surv_3_groups(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
-    c_scores = cox_output[1]
-    pred_data = cox_output[2]
-    HyperParams = cox_output[3]
+def plot_c_surv_3_groups(pred_data, HyperParams, surv_curves_outdir, group_weights = [0.5, 0.5] ):
     plt.figure()
     kmf = KaplanMeierFitter()
-    median_score = np.median(pred_data["pred_risk"])
-
     sorted_scores = np.sort(pred_data["pred_risk"])
     nsamples = len(sorted_scores)
     nb_fav = group_weights[0]
@@ -102,7 +125,8 @@ def plot_c_surv_3_groups(cox_output, surv_curves_outdir, group_weights = [0.5, 0
     model_id = HyperParams["model_id"]
     input_size = HyperParams["input_size"]
     c_ind = HyperParams["c_index_metrics"]
-    surv_outpath = os.path.join(surv_curves_outdir, f"{model_type}_{cohort}_{input_size}_{model_id}")
+    input_type = HyperParams["input_type"]
+    surv_outpath = os.path.join(surv_curves_outdir, f"7_{input_type}_{cohort}_{input_size}")
     plt.title(f"Survival curves - model_type: {model_type}")
     ax.set_xlabel(f'''timeline 
     dataset: {cohort}, input_dim: {input_size} 
@@ -111,9 +135,37 @@ def plot_c_surv_3_groups(cox_output, surv_curves_outdir, group_weights = [0.5, 0
     plt.tight_layout()
     plt.savefig(f"{surv_outpath}.svg")
 
-def plot_cm(data1, data2, basepath):
-    fig, ax = plt.subplots()
-    return ax, basepath
+def plot_cm(pred_scores, cyt, params, outdir):
+    # rename groups 
+    pred_scores["Cytogenetic risk"] = [{"int":"intermediate cytogenetics", "fav":"favorable cytogenetics", "adv": "adverse cytogenetics"}[g.split(".")[0]] for g in  pred_scores["group"]]
+    # merge two files based on index
+    scores_merged = cyt.merge(pred_scores, left_index = True, right_index = True)
+    # get confusion matrix
+    true_cyt = scores_merged["Cytogenetic risk_x"]
+    pred_cyt = scores_merged["Cytogenetic risk_y"]
+    labels = ["adverse cytogenetics", "intermediate cytogenetics", "favorable cytogenetics"]
+    CM = confusion_matrix(true_cyt, pred_cyt, labels = labels)
+
+    # plot
+
+    fig, ax = plt.subplots(figsize = (12,10))
+    im = ax.pcolor(CM, vmin = 0, vmax = 177, cmap=plt.cm.Blues)
+    for (i, j), z in np.ndenumerate(CM):
+        ax.text(j + 0.5, i + 0.5, '{}'.format(int(z)), ha='center', va='center')
+
+    ax.set_yticklabels(labels)
+    ax.set_xticks(np.arange(CM.shape[1]) + 0.5, minor=False)
+    ax.set_xlabel("predicted classes")
+    ax.set_ylabel("true classes")
+    ax.set_yticks(np.arange(CM.shape[0]) + 0.5, minor=False)
+    
+    ax.set_xticklabels(labels)
+    fig.colorbar(im)
+    plt.title(f"Confusion matrix: {params['input_type']}_{params['input_size']}_{params['modeltype']}_{params['cohort']}")
+    plt.tight_layout()
+    # dump
+    plt.savefig(os.path.join(outdir, f"7_CM_{params['input_type']}_{params['input_size']}_{params['modeltype']}_{params['cohort']}.svg"))
+    return ax
 
 def plot_training(loss_training, c_index_training, foldn, model):
     fig, ax1 = plt.subplots()

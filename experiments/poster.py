@@ -5,6 +5,7 @@ from engines.functions import *
 from engines.datasets.base_datasets import SurvivalGEDataset
 from engines.models import cox_models
 from engines.hp_dict.base import HP_dict
+from collections import Counter
 import os
 import pdb 
 
@@ -14,7 +15,7 @@ def run(args):
     lgn_pronostic = SurvivalGEDataset().get_data("lgn_pronostic")
     LGN_CDS = lgn_pronostic["CDS"]
     LGN_LSC17 = lgn_pronostic["LSC17"]
-    LGN_CF = lgn_pronostic["CF"]
+    LGN_CF = lgn_pronostic["CF_bin"]
     LGN_PCA17 = PCA_transform(LGN_CDS.x, 17)
     lgn_int = SurvivalGEDataset().get_data("lgn_intermediate")
     LGN_INT_CDS = lgn_int["CDS"]
@@ -52,19 +53,45 @@ def run(args):
     TCGA_PCA17_params = HyperParams.generate_default("ridge_cph_lifelines_PCA", TCGA_CDS)        
     #plot_c_surv(cox_models.evaluate(CF_LSC17, params))
     #plot_c_surv(cox_models.evaluate(CF_PCA))
-    plot_c_surv(cox_models.evaluate(LGN_LSC17, LGN_LSC17_params), args.OUTPATH)
-    plot_c_surv(cox_models.evaluate(LGN_CDS, LGN_PCA17_params, pca_n = 17), args.OUTPATH)
-    plot_c_surv(cox_models.evaluate(LGN_INT_LSC17, LGN_INT_LSC17_params), args.OUTPATH)
-    plot_c_surv(cox_models.evaluate(LGN_INT_CDS, LGN_INT_PCA17_params, pca_n = 17), args.OUTPATH)
-    plot_c_surv(cox_models.evaluate(TCGA_LSC17, TCGA_LSC17_params ), args.OUTPATH)
-    plot_c_surv(cox_models.evaluate(TCGA_CDS, TCGA_PCA17_params, pca_n = 17 ), args.OUTPATH)
+    # plot_c_surv(cox_models.evaluate(LGN_LSC17, LGN_LSC17_params), args.OUTPATH)
+    # plot_c_surv(cox_models.evaluate(LGN_CDS, LGN_PCA17_params, pca_n = 17), args.OUTPATH)
+    # plot_c_surv(cox_models.evaluate(LGN_INT_LSC17, LGN_INT_LSC17_params), args.OUTPATH)
+    # plot_c_surv(cox_models.evaluate(LGN_INT_CDS, LGN_INT_PCA17_params, pca_n = 17), args.OUTPATH)
+    # plot_c_surv(cox_models.evaluate(TCGA_LSC17, TCGA_LSC17_params ), args.OUTPATH)
+    # plot_c_surv(cox_models.evaluate(TCGA_CDS, TCGA_PCA17_params, pca_n = 17 ), args.OUTPATH)
     # 6 correlations
+    # plot heatmap of table --> heatmap_pca.svg
+    features = ['Age_at_diagnosis', 'adverse cytogenetics', 
+        'favorable cytogenetics', 'intermediate cytogenetics',
+        'NPM1 mutation_1.0', 'IDH1-R132 mutation_1.0', 
+        'FLT3-ITD mutation_1', 'Sex_F']
+    plot_correlations(get_corr_to_cf(LGN_LSC17.x, LGN_CF), features, "LSC17", args.OUTPATH, figsize = (12,12))
+    plot_correlations(get_corr_to_cf(LGN_PCA17, LGN_CF), features, "PCA17", args.OUTPATH, figsize = (12,12))
+    # plot expl. var / var ratio vs #PC --> pca var .svg
+    #pc_var_plot(corr_df)
     #plot_correlations(LSC17, CF)
     #plot_correlations(PCA17, CF)
     #plot_variance(PCA17)
     # 7 Reclassification (surv curves cox-PH, separation between 3 groups)
-    #plot_c_surv_3_groups(CYT)
-    #plot_c_surv_3_groups(LSC17)
-    #plot_c_surv_3_groups(PCA17)
-    #plot_cm(LSC17, CYT)
-    #plot_cm(PCA17, CYT)
+    SGE = SurvivalGEDataset()
+    SGE.get_data("lgn_pronostic")
+    CDS = SGE.data["CDS"]
+    cyt = pd.DataFrame(SGE.data["CF"]["Cytogenetic risk"])
+    cyt_levels = [{"intermediate cytogenetics":1, "adverse cytogenetics": 2, "favorable cytogenetics":0 }[level] for level in cyt["Cytogenetic risk"]] 
+    cyt["pred_risk"] = cyt_levels
+    cyt_c_scores_1, cyt_metrics_1 = compute_cyto_risk_c_index(cyt["pred_risk"],CDS.y, gamma = 0.001, n = args.bootstr_n)
+    cyt_c_scores_2, cyt_metrics_2  = compute_aggregated_bootstrapped_c_index(cyt["pred_risk"], CDS.y, n=args.bootstr_n)
+    params = HyperParams.generate_default("cytogenetic_risk", cyt["pred_risk"])
+    params["c_index_metrics"] = cyt_metrics_1[0]          
+    cyt["e"] = CDS.y["e"]
+    cyt["t"] = CDS.y["t"]
+    print("C index method 1: ", cyt_metrics_1)
+    print("C index method 2: ", cyt_metrics_2)
+    plot_c_surv_3_groups(cyt, params, args.OUTPATH, group_weights = Counter(cyt_levels))
+    c_index_metrics, c_scores, lsc17_surv_tbl, lsc17_params = cox_models.evaluate(LGN_LSC17, LGN_LSC17_params)
+    plot_c_surv_3_groups(lsc17_surv_tbl, lsc17_params,args.OUTPATH, group_weights = Counter(cyt_levels))
+    c_index_metrics, c_scores, pca17_surv_tbl, pca17_params = cox_models.evaluate(LGN_CDS, LGN_PCA17_params, pca_n = 17)
+    plot_c_surv_3_groups(pca17_surv_tbl, pca17_params,args.OUTPATH, group_weights = Counter(cyt_levels))
+    
+    plot_cm(lsc17_surv_tbl, cyt, lsc17_params, args.OUTPATH)
+    plot_cm(pca17_surv_tbl, cyt, pca17_params, args.OUTPATH)
