@@ -60,7 +60,6 @@ def plot_c_surv(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
     plt.savefig(f"{surv_outpath}.svg")
 
 def plot_correlations(corr_tbl,columns, proj_type, fig_path, figsize):
-    pdb.set_trace()
     #fig_outfile =os.path.join(fig_path, f"corr_cf_{proj_type}_{cohort}_heatmap.svg" )
     #mini_fig_outfile = os.path.join(fig_path, f"corr_cf_{proj_type}_{cohort}_heatmap_mini.svg" )
         
@@ -135,6 +134,54 @@ def plot_c_surv_3_groups(pred_data, HyperParams, surv_curves_outdir, group_weigh
     plt.tight_layout()
     plt.savefig(f"{surv_outpath}.svg")
 
+def plot_cm_any(scores1, scores2, params1, params2, outpath, group_weights):
+    def bin_by_weights(scores):
+        sorted_scores = np.sort(scores["pred_risk"])
+        nb_fav = group_weights[0] 
+        nb_int = group_weights[1]
+        int_sep = sorted_scores[nb_fav]
+        adv_sep = sorted_scores[nb_fav + nb_int] 
+        def classify(x):
+            if x < int_sep:
+                return "favorable cytogenetics"
+            elif x < adv_sep:
+                return "intermediate cytogenetics"
+            else : return "adverse cytogenetics"
+        return [classify(x) for x in scores["pred_risk"]]
+    scores1["group"] = bin_by_weights(scores1)
+    scores2["group"] = bin_by_weights(scores2) 
+    # merge two files based on index
+    scores_merged = scores1.merge(scores2, left_index = True, right_index = True)
+    # get confusion matrix
+    scores1_cyt = scores_merged["group_x"]
+    scores2_cyt = scores_merged["group_y"]
+
+    labels = ["adverse cytogenetics", "intermediate cytogenetics", "favorable cytogenetics"]
+    CM = confusion_matrix(scores1_cyt, scores2_cyt, labels = labels)
+    fig, ax = plt.subplots(figsize = (12,10))
+    im = ax.pcolor(CM, vmin = 0, vmax = 177, cmap=plt.cm.Blues)
+    for (i, j), z in np.ndenumerate(CM):
+        ax.text(j + 0.5, i + 0.5, '{}'.format(int(z)), ha='center', va='center')
+    ax.set_yticklabels(labels)
+    ax.set_xticks(np.arange(CM.shape[1]) + 0.5, minor=False)
+    ax.set_xlabel(params1["input_type"])
+    ax.set_ylabel(params2["input_type"])
+    ax.set_yticks(np.arange(CM.shape[0]) + 0.5, minor=False)
+    
+    ax.set_xticklabels(labels)
+    plt.title(f"Confusion matrix: predicted: {params1['input_type']} true: {params2['input_type']}_{params1['cohort']}")
+    plt.tight_layout()
+    # dump
+    plt.savefig(os.path.join(outpath, f"7_CM_{params1['input_type']}_{params2['input_type']}_{params1['cohort']}.svg"))
+    plt.figure()
+    plt.title("Predicted Risk vs predicted risk between two methods")
+    plt.scatter(scores1["pred_risk"], scores2["pred_risk"])
+    plt.xlabel(f'{params1["input_type"]} predicted risk')
+    plt.ylabel(f'{params2["input_type"]} predicted risk')
+    plt.plot([0,1], [0,1])
+    plt.savefig(os.path.join(outpath, f"8_scatter_{params1['input_type']}_{params2['input_type']}_{params1['cohort']}.svg"))
+    return ax
+
 def plot_cm(pred_scores, cyt, params, outdir):
     # rename groups 
     pred_scores["Cytogenetic risk"] = [{"int":"intermediate cytogenetics", "fav":"favorable cytogenetics", "adv": "adverse cytogenetics"}[g.split(".")[0]] for g in  pred_scores["group"]]
@@ -147,7 +194,7 @@ def plot_cm(pred_scores, cyt, params, outdir):
     CM = confusion_matrix(true_cyt, pred_cyt, labels = labels)
 
     # plot
-
+    pdb.set_trace()
     fig, ax = plt.subplots(figsize = (12,10))
     im = ax.pcolor(CM, vmin = 0, vmax = 177, cmap=plt.cm.Blues)
     for (i, j), z in np.ndenumerate(CM):

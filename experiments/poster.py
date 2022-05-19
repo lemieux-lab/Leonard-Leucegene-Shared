@@ -65,8 +65,8 @@ def run(args):
         'favorable cytogenetics', 'intermediate cytogenetics',
         'NPM1 mutation_1.0', 'IDH1-R132 mutation_1.0', 
         'FLT3-ITD mutation_1', 'Sex_F']
-    plot_correlations(get_corr_to_cf(LGN_LSC17.x, LGN_CF), features, "LSC17", args.OUTPATH, figsize = (12,12))
-    plot_correlations(get_corr_to_cf(LGN_PCA17, LGN_CF), features, "PCA17", args.OUTPATH, figsize = (12,12))
+    #plot_correlations(get_corr_to_cf(LGN_LSC17.x, LGN_CF), features, "LSC17", args.OUTPATH, figsize = (12,12))
+    #plot_correlations(get_corr_to_cf(LGN_PCA17, LGN_CF), features, "PCA17", args.OUTPATH, figsize = (12,12))
     # plot expl. var / var ratio vs #PC --> pca var .svg
     #pc_var_plot(corr_df)
     #plot_correlations(LSC17, CF)
@@ -87,11 +87,13 @@ def run(args):
     cyt["t"] = CDS.y["t"]
     print("C index method 1: ", cyt_metrics_1)
     print("C index method 2: ", cyt_metrics_2)
-    plot_c_surv_3_groups(cyt, params, args.OUTPATH, group_weights = Counter(cyt_levels))
+    #plot_c_surv_3_groups(cyt, params, args.OUTPATH, group_weights = Counter(cyt_levels))
     c_index_metrics, c_scores, lsc17_surv_tbl, lsc17_params = cox_models.evaluate(LGN_LSC17, LGN_LSC17_params)
-    plot_c_surv_3_groups(lsc17_surv_tbl, lsc17_params,args.OUTPATH, group_weights = Counter(cyt_levels))
+    #plot_c_surv_3_groups(lsc17_surv_tbl, lsc17_params,args.OUTPATH, group_weights = Counter(cyt_levels))
     c_index_metrics, c_scores, pca17_surv_tbl, pca17_params = cox_models.evaluate(LGN_CDS, LGN_PCA17_params, pca_n = 17)
-    plot_c_surv_3_groups(pca17_surv_tbl, pca17_params,args.OUTPATH, group_weights = Counter(cyt_levels))
+    #plot_c_surv_3_groups(pca17_surv_tbl, pca17_params,args.OUTPATH, group_weights = Counter(cyt_levels))
     
     plot_cm(lsc17_surv_tbl, cyt, lsc17_params, args.OUTPATH)
-    plot_cm(pca17_surv_tbl, cyt, pca17_params, args.OUTPATH)
+    #plot_cm(pca17_surv_tbl, cyt, pca17_params, args.OUTPATH)
+    #plot_scatter()
+    plot_cm_any(pca17_surv_tbl, lsc17_surv_tbl, pca17_params, lsc17_params, args.OUTPATH, group_weights =Counter(cyt_levels) )
