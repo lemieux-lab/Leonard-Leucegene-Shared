@@ -233,7 +233,7 @@ class SurvivalGEDataset():
         self.data = {"cohort": self.COHORT,"CDS": cds_data, "TRSC": trsc_data, "LSC17": lsc17_data, "CF": self.CF, "CF_bin": self.CF_bin} #, "LSC17":lsc17_data, "FE": FE_data}
     
     def _get_LSC17(self):
-        if f"LSC17_{self.COHORT}_expressions.csv" in os.listdir("Data/SIGNATURES"):
+        if 0: # f"LSC17_{self.COHORT}_expressions.csv" in os.listdir("Data/SIGNATURES"):
             LSC17_expressions = pd.read_csv(f"Data/SIGNATURES/LSC17_{self.COHORT}_expressions.csv", index_col = 0)
         else: 
             lsc17 = pd.read_csv("Data/SIGNATURES/LSC17.csv")
@@ -267,7 +267,7 @@ class TCGA_Dataset():
         self.NS = self._CLIN_INFO.shape[0]   
 
     def _init_CF_files(self):
-        if "TCGA_CF.assembled.csv" in os.listdir(self.tcga_data_path):
+        if 0 : #"TCGA_CF.assembled.csv" in os.listdir(self.tcga_data_path):
             self._CLIN_INFO_RAW = pd.read_csv(os.path.join(self.tcga_data_path, "TCGA_CF.assembled.csv"), index_col = 0)
         else: 
             ## FETCH CLINICAL DATA ##
@@ -306,16 +306,12 @@ class TCGA_Dataset():
             self._CLIN_INFO_RAW.to_csv(os.path.join(self.tcga_data_path, "TCGA_CF.assembled.csv"))
         
         # preprocess clinical info file
-        self._CLIN_INFO_RAW.columns = ['TARGET USI', 'submitter_id', 'filepath','dataset', 'sequencer', 'Gender', 'Risk group', 'FLT3/ITD positive?', 'NPM mutation','Induction_Type', 'Overall_Survival_Time_days', 'Overall_Survival_Status']
+        self._CLIN_INFO_RAW.columns = ['TARGET USI', 'submitter_id', 'filepath','dataset', 'sequencer', 'Gender', 'Cytogenetic risk', 'FLT3/ITD positive?', 'NPM mutation','Induction_Type', 'Overall_Survival_Time_days', 'Overall_Survival_Status']
         # format censorship state 
         self._CLIN_INFO_RAW["Overall_Survival_Status"] = (self._CLIN_INFO_RAW["Overall_Survival_Status"] == "Dead").astype(int)
-        # remove samples marked as "dead" without recorded time
-        self._CLIN_INFO_RAW = self._CLIN_INFO_RAW[(self._CLIN_INFO_RAW["Overall_Survival_Time_days"] == self._CLIN_INFO_RAW["Overall_Survival_Time_days"]) | (self._CLIN_INFO_RAW.Overall_Survival_Status == 0)]
-        # cap survival times for censored samples with no recorded time (NaNs)
-        capped_surv_times = self._CLIN_INFO_RAW.Overall_Survival_Time_days
-        capped_surv_times[self._CLIN_INFO_RAW.Overall_Survival_Time_days != self._CLIN_INFO_RAW.Overall_Survival_Time_days] = max(self._CLIN_INFO_RAW.Overall_Survival_Time_days)
-        self._CLIN_INFO = pd.DataFrame(self._CLIN_INFO_RAW)
-        self._CLIN_INFO.Overall_Survival_Time_days = capped_surv_times
+        # remove samples marked as "dead" without recorded time (8 samples)
+        self._CLIN_INFO = self._CLIN_INFO_RAW[(self._CLIN_INFO_RAW["Overall_Survival_Time_days"] == self._CLIN_INFO_RAW["Overall_Survival_Time_days"])]
+        
 
     def load(self):
         # retriteves tpm transformed expression data 
@@ -396,7 +392,7 @@ class TCGA_Dataset():
         
     def _parse_clinical_xml_files(self):
         # HARDCODED features to extract
-        patient_features = ['batch_number', 'project_code', 'tumor_tissue_site', 'leukemia_specimen_cell_source_type', 'gender', 'vital_status','bcr_patient_barcode', 'days_to_death', 'days_to_last_known_alive', 'days_to_last_followup', 'days_to_initial_pathologic_diagnosis','days_to_birth', 'age_at_initial_pathologic_diagnosis', 'year_of_initial_pathologic_diagnosis' ]
+        patient_features = ['batch_number', 'project_code', 'tumor_tissue_site', 'leukemia_specimen_cell_source_type', 'gender', 'vital_status','bcr_patient_barcode', 'days_to_death', 'days_to_last_known_alive', 'days_to_last_followup', 'days_to_initial_pathologic_diagnosis','days_to_birth', 'age_at_initial_pathologic_diagnosis', 'year_of_initial_pathologic_diagnosis', "acute_myeloid_leukemia_calgb_cytogenetics_risk_category" ]
         mutation_features = ['NPMc Positive', 'FLT3 Mutation Positive', 'Activating RAS Positive']
         header_array = np.concatenate((patient_features, mutation_features))
         clinical_data_matrix = []
@@ -417,20 +413,23 @@ class TCGA_Dataset():
                                 mutation_features_array.append(int(mut in mutation_profile))	    
             clinical_data_matrix.append(np.concatenate((patient_features_array, mutation_features_array)))
         clinical_data = pd.DataFrame(clinical_data_matrix, columns = header_array)
+
         return clinical_data
 
     def _merge_tcga_target_clinical_features(self, CD_tcga_profile, CD_target_profile):
         target_features = ['TARGET USI', 'Gender', 'FLT3/ITD positive?', 'NPM mutation', 'Overall Survival Time in Days', 'Vital Status', 'Risk group']
         target = CD_target_profile[target_features]
-        tcga_features = ['bcr_patient_barcode','gender', 'FLT3 Mutation Positive', 'NPMc Positive', 'days_to_death', 'vital_status']
-        tcga = CD_tcga_profile[tcga_features]
-        tcga["Risk group"] = 'unknown'
-        tcga.columns = target_features
+        tcga_features = ['bcr_patient_barcode','gender', 'FLT3 Mutation Positive', 'NPMc Positive', 'Overall Survival Time in Days' , 'vital_status', 'acute_myeloid_leukemia_calgb_cytogenetics_risk_category']
+        CD_tcga_profile["Overall Survival Time in Days"] = CD_tcga_profile["days_to_death"] 
+        censored = CD_tcga_profile["days_to_death"] != CD_tcga_profile["days_to_death"]
+        CD_tcga_profile["Overall Survival Time in Days"][censored] = CD_tcga_profile["days_to_last_followup"][censored]
+        CD_tcga_profile = CD_tcga_profile[tcga_features]
+        CD_tcga_profile.columns = target_features
         # uniformize values 
         target.Gender = target.Gender.str.upper()
         target['FLT3/ITD positive?'] = np.asarray(target['FLT3/ITD positive?'] == 'Yes', dtype = int)
         target['NPM mutation'] = np.asarray(target['NPM mutation'] == 'Yes', dtype = int)
-        tcga_target_clinical_features = pd.DataFrame(np.concatenate((tcga, target)), columns = target_features)
+        tcga_target_clinical_features = pd.DataFrame(np.concatenate((CD_tcga_profile, target)), columns = target_features)
         # add an unknown induction type column
         tcga_target_clinical_features['Induction_Type'] = 'unknown'
         # rename columns 

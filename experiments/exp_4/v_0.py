@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pdb 
 import matplotlib.pyplot as plt
+from experiments.plotting_functions import *
 plt.rcParams["svg.fonttype"] = "none" # text rendering in figures output 
 
 
@@ -40,6 +41,7 @@ def plot_surv_curves(pred_data, HyperParams, surv_curves_outdir, group_weights =
     fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7,6))
     colors = ["red","blue", "grey"]
     print("plotting ...")
+    pdb.set_trace()
     for i, (name, grouped_df) in enumerate( pred_data.groupby("group")):     
         kmf.fit(grouped_df["t"], grouped_df["e"], label=name)
         kmf.plot_survival_function(ax = ax, color = colors[i], show_censors =True, censor_styles = {"ms": 6, "marker": "x"})
@@ -113,7 +115,7 @@ def run(args):
     # prepare performance result matrix
     perfo_matrix = []
     cyt = pd.DataFrame(SGE.data["CF"]["Cytogenetic risk"])
-    cyt_levels = [{"intermediate cytogenetics":1, "adverse cytogenetics": 2, "favorable cytogenetics":0 }[level] for level in cyt["Cytogenetic risk"]] 
+    cyt_levels = [{"intermediate cytogenetics":1, "Intermediate/Normal":1, "adverse cytogenetics": 2, "favorable cytogenetics":0, "Favorable":0, "Standard":1, "Low":0, "Poor":2, None: 1}[level] for level in cyt["Cytogenetic risk"]] 
     cyt["pred_risk"] = cyt_levels
     cyt_c_scores_1, cyt_metrics_1 = functions.compute_cyto_risk_c_index(cyt["pred_risk"],CDS.y, gamma = 0.001, n = args.bootstr_n)
     cyt_c_scores_2, cyt_metrics_2  = functions.compute_aggregated_bootstrapped_c_index(cyt["pred_risk"], CDS.y, n=args.bootstr_n)
@@ -125,7 +127,8 @@ def run(args):
     cyt["t"] = CDS.y["t"]
     print("C index method 1: ", cyt_metrics_1)
     print("C index method 2: ", cyt_metrics_2)
-    plot_surv_curves(cyt, params, surv_curves_outdir, group_weights = Counter(cyt_levels))
+    params["cohort"] = args.COHORT
+    plot_c_surv_3_groups(cyt, params, args.OUTPATH, group_weights = Counter(cyt_levels))
     if params_file is None : params_file = pd.DataFrame(params, index = [0])
     else: params_file = pd.concat([params_file, pd.DataFrame(params)])
          
@@ -135,28 +138,31 @@ def run(args):
         # use LSC17 benchmark
         LSC17.split_train_test(HyperParams.nfolds)
         params = HyperParams.generate_default(model_type + "_LSC17", LSC17)
-        c_ind_metrics, c_scores, pred_risks = cox_models.evaluate(LSC17, params, pca_n = None)
-        plot_surv_curves(pred_risks, params, surv_curves_outdir, group_weights = Counter(cyt_levels))
-        plot_confusion_matrix(pred_risks, cyt, params, conf_matrix_outdir)
+        c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(LSC17, params, pca_n = None)
+        params["input_type"] = "LSC17"
+        params["cohort"] = args.COHORT
+        plot_c_surv_3_groups(surv_tbl, params, args.OUTPATH, group_weights = Counter(cyt_levels))
+        #plot_confusion_matrix(pred_risks, cyt, params, conf_matrix_outdir)
         params_file = pd.concat([params_file, pd.DataFrame(params, index = [0])])
         perfo_matrix.append((params["model_id"], c_scores))
-
         for input_dim in input_dims:
             # split training / valid
             data = CDS.clone()
             data.split_train_test(HyperParams.nfolds)
             # generate Hyper-Parameter dict specific to model type
             params = HyperParams.generate_default(model_type + "_PCA", data)
-            c_ind_metrics, c_scores, pred_risks = cox_models.evaluate(data, params, pca_n = input_dim)
-            plot_surv_curves(pred_risks, params, surv_curves_outdir, group_weights = Counter(cyt_levels))
-            plot_confusion_matrix(pred_risks, cyt, params, conf_matrix_outdir)
+            params["input_type"] = "PCA"
+            params["cohort"] = args.COHORT
+            c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data, params, pca_n = input_dim) 
+            plot_c_surv_3_groups(surv_tbl, params, args.OUTPATH, group_weights = Counter(cyt_levels))
+            #plot_confusion_matrix(pred_risks, cyt, params, conf_matrix_outdir)
             params_file = pd.concat([params_file, pd.DataFrame(params, index = [0])])
             perfo_matrix.append((params["model_id"], c_scores))
              # dump params matrix to run logs
             
             params_file.to_csv(params_file_outpath, index=False)
     # dump performance matrix to perf_tables
-    perfo_file_outpath = os.path.join(perf_tables_outdir, f"{tstamp}_bottstrapped_c_indices.csv")
+    perfo_file_outpath = os.path.join(perf_tables_outdir, f"{tstamp}_bootstrapped_c_indices.csv")
     perfo_file = pd.DataFrame(dict(perfo_matrix))
     perfo_file.to_csv(perfo_file_outpath, index = False)
 

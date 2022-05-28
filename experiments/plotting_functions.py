@@ -115,6 +115,7 @@ def plot_c_surv_3_groups(pred_data, HyperParams, surv_curves_outdir, group_weigh
     fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7,6))
     colors = ["red","blue", "grey"]
     print("plotting ...")
+    
     for i, (name, grouped_df) in enumerate( pred_data.groupby("group")):     
         kmf.fit(grouped_df["t"], grouped_df["e"], label=name)
         kmf.plot_survival_function(ax = ax, color = colors[i], show_censors =True, censor_styles = {"ms": 6, "marker": "x"})
