@@ -158,6 +158,9 @@ class SurvivalGEDataset():
         # manage gene expressions
         if gene_expressions is None:
             train_features = clinical_features
+        elif gene_expressions == "LSC17":
+            LSC17_features = self.data["LSC17"]
+            train_features = clinical_features.merge(LSC17_features.x, left_index = True, right_index = True)
         # manage target features
         target_features = self.data["CDS"].y
         data = Data(x = train_features, y = target_features, gene_info=self.gene_repertoire)

@@ -67,7 +67,7 @@ class ridge_cph:
 class CPH:
     def __init__(self, data, params, pca_n):
         picker = {"ridge_cph_lifelines": ridge_cph_lifelines, 
-        "cphdnn": CPHDNN}
+        "CPHDNN": CPHDNN}
         self.model_type = params["modeltype"]
         self.model = picker[self.model_type](params)
         self.data = data
@@ -175,7 +175,8 @@ class CPHDNN(nn.Module):
                 self.optimizer.zero_grad()
                 out = self.forward(train_features)
                 l = self.loss(out, train_T, train_E)
-                c = functions.compute_c_index(train_T.detach().cpu().numpy(), train_E.detach().cpu().numpy(), out.detach().cpu().numpy())
+                data = pd.DataFrame({"t":train_T.detach().cpu().numpy(), "e":train_E.detach().cpu().numpy()})
+                c = functions.compute_c_index(out.detach().cpu().numpy(), data,  method = "own")
                 #print(f"c_index: {c}")
                 l.backward() 
     
@@ -235,9 +236,11 @@ class CPHDNN(nn.Module):
             [f"Non-Linearity_0", self.params["nL"]]])             
         
         ## hidden layers
-        for layer_id in range(self.params["D"]-1):
-            stack.append([
-            [f"Linear_{layer_id+1}", nn.Linear(self.params["W"], 1)]])            
+        depth = self.params["D"]-1
+        for layer_id in range(depth):
+            output_size = self.params["W"] if layer_id != (depth - 1) else 1
+            layer = [[f"Linear_{layer_id+1}", nn.Linear(self.params["W"], output_size)]]
+            stack.append(layer)            
         
         ## output layer
         #stack.append([

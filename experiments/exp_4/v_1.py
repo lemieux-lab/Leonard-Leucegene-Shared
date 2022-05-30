@@ -15,7 +15,8 @@ import pdb
 import matplotlib.pyplot as plt
 from experiments.plotting_functions import *
 plt.rcParams["svg.fonttype"] = "none" # text rendering in figures output 
-
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 def plot_surv_curves(pred_data, HyperParams, surv_curves_outdir, group_weights = [0.5, 0.5] ):
     plt.figure()
@@ -123,17 +124,30 @@ def run(args):
        'Monosomy17/del17p (less than 3 chromosomal abnormalities)',
        'Hyperdiploid numerical abnormalities only']
     HyperParams = HP_dict(args)
-    data1 = SGE.new(args.COHORT, np.concatenate([mutations, cytogenetics, age_sex]), gene_expressions=None)
-    # drop some low variance cols
-    data1.x = data1.x[data1.x.columns[np.where(data1.x.var(0) > 0.01)]]
-    data1.split_train_test(HyperParams.nfolds)
-    params = HyperParams.generate_default("ridge_cph_lifelines_CF", data1)
-    c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data1, params, pca_n = None)
-    pdb.set_trace()
     # get chrom. rearragments
     # get mutation profile 
     # get binarized age value (>60, <60)
-    # combine to LSC17 profile
-    # combine to PCA profile 
-    
+    # data1 = SGE.new(args.COHORT, np.concatenate([mutations, cytogenetics, age_sex]), gene_expressions=None)
+    # # drop some low variance cols
+    # data1.x = data1.x[data1.x.columns[np.where(data1.x.var(0) > 0.01)]]
+    # data1.split_train_test(HyperParams.nfolds)
+    # params = HyperParams.generate_default("ridge_cph_lifelines_CF", data1)
+    # c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data1, params, pca_n = None)
+    # # combine CF profile to LSC17 profile
+    # data2 = SGE.new(args.COHORT, np.concatenate([mutations, cytogenetics, age_sex]), gene_expressions="LSC17")
+    # data2.x = data2.x[data2.x.columns[np.where(data2.x.var(0) > 0.01)]]
+    # data2.split_train_test(HyperParams.nfolds)
+    # params = HyperParams.generate_default("ridge_cph_lifelines_CF_LSC17", data2)
+    # c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data2, params, pca_n = None)
+
+    for i in range(1, 11, 1):
+        print(f"CPHDNN Nb Layers: {i} x (143 nodes)")
+        data = SGE.new(args.COHORT, np.concatenate([mutations, cytogenetics, age_sex]), gene_expressions="LSC17")
+        data.x = data.x[data.x.columns[np.where(data.x.var(0) > 0.01)]]
+        data.split_train_test(HyperParams.nfolds)
+        params = HyperParams.generate_default(f"cphdnn_{i}l", data)
+        c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data, params, pca_n = None)
+        
+    # combine CF profile to PCA profile 
+    # data3 = SGE.new(args.COHORT, np.concatenate([mutations, cytogenetics, age_sex]), gene_expressions="PCA")
     
