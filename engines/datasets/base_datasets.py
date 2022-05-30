@@ -151,8 +151,18 @@ class SurvivalGEDataset():
         self.learning = True
         self.gene_repertoire = self.process_gene_repertoire_data()
     
-    def new(self, x, y ):
-        return Data(x = x, y = y, gene_info=self.gene_repertoire)
+    def new(self, cohort, clinical_factors, gene_expressions):
+        self.get_data(cohort)
+        # manage clinical factors
+        clinical_features = self.data["CF_bin"][clinical_factors]
+        # manage gene expressions
+        if gene_expressions is None:
+            train_features = clinical_features
+        # manage target features
+        target_features = self.data["CDS"].y
+        data = Data(x = train_features, y = target_features, gene_info=self.gene_repertoire)
+        if (data.y.index != data.x.index).sum() > 0: raise(Exception, 'error: unmatch in index')
+        return data
         
     def process_gene_repertoire_data(self):
         print("Loading and assembling Gene Repertoire...")
@@ -173,46 +183,59 @@ class SurvivalGEDataset():
         elif cohort == "tcga_target_aml":
             DS = TCGA_Dataset(self.gene_repertoire)
             DS.load()
-            self._set_data(DS, rm_unexpr=True, binarize = False)
+            self._set_data(DS, rm_unexpr=True)
 
         elif cohort == "lgn_intermediate":
             DS = Leucegene_Dataset(self.gene_repertoire)
             DS.load()
-            self._set_data(DS, subset = "intermediate cytogenetics", rm_unexpr=True)
+            self._set_data(DS, rm_unexpr=True)
         return self.data
     
-    def _binarize_clin_infos(self, features, bin_features):
-        binf = self.CF[features] 
-        ret_df = pd.DataFrame(binf["Age_at_diagnosis"])
-        for feature in bin_features:
+    def _binarize_clin_infos(self):
+        ret_df = pd.DataFrame((self.CF["Age_at_diagnosis"] > 60).astype(int))
+        binarized_features = ['Cytogenetic group','FLT3-ITD mutation', 'IDH1-R132 mutation','NPM1 mutation', 'Sex']
+        for feature in binarized_features :
             lb = LabelBinarizer()
-            bin = lb.fit_transform(binf[feature])
+            bin = lb.fit_transform(self.CF[feature])
             if bin.shape[1] == 1:
                 bin = np.hstack((1 - bin, bin))
-                bin_labels = pd.DataFrame(bin, columns = [f"{feature}_{c}" for c in lb.classes_], index = binf.index)
-            else: bin_labels = pd.DataFrame(bin, columns = lb.classes_, index = binf.index)
+                bin_labels = pd.DataFrame(bin, columns = [f"{feature}_{c}" for c in lb.classes_], index = self.CF.index)
+            else: bin_labels = pd.DataFrame(bin, columns = lb.classes_, index = self.CF.index)
             ret_df = ret_df.merge(bin_labels,  left_index = True, right_index = True)
-        self.CF_bin = ret_df
+        columns = ['Age_at_diagnosis', 'Complex (3 and more chromosomal abnormalities)',
+       'EVI1 rearrangements (+EVI1 FISH positive) (Irrespective of additional cytogenetic abnormalities)',
+       'Hyperdiploid numerical abnormalities only',
+       'Intermediate abnormal karyotype (except isolated trisomy/tetrasomy 8)',
+       'MLL translocations (+MLL FISH positive) (Irrespective of additional cytogenetic abnormalities)',
+       'Monosomy 5/ 5q-/Monosomy 7/ 7q- (less than 3 chromosomal abnormalities)',
+       'Monosomy17/del17p (less than 3 chromosomal abnormalities)',
+       'NUP98-NSD1(normal karyotype)', 'Normal karyotype',
+       'Trisomy/tetrasomy 8 (isolated)',
+       'inv(16)(p13.1q22)/t(16;16)(p13.1;q22)/CBFB-MYH11 (Irrespective of additional cytogenetic abnormalities)',
+       't(6;9)(p23;q34) (Irrespective of additional cytogenetic abnormalities)',
+       't(8;21)(q22;q22)/RUNX1-RUNX1T1 (Irrespective of additional cytogenetic abnormalities)',
+       'FLT3-ITD mutation_1', 'IDH1-R132 mutation_1.0', 'NPM1 mutation_1.0','Sex_F']
+        self.CF_bin = ret_df[columns]
+        self.CF_bin.columns = ['Age_gt_60', 'Complex (3 and more chromosomal abnormalities)',
+       'EVI1 rearrangements (+EVI1 FISH positive) (Irrespective of additional cytogenetic abnormalities)',
+       'Hyperdiploid numerical abnormalities only',
+       'Intermediate abnormal karyotype (except isolated trisomy/tetrasomy 8)',
+       'MLL translocations (+MLL FISH positive) (Irrespective of additional cytogenetic abnormalities)',
+       'Monosomy 5/ 5q-/Monosomy 7/ 7q- (less than 3 chromosomal abnormalities)',
+       'Monosomy17/del17p (less than 3 chromosomal abnormalities)',
+       'NUP98-NSD1(normal karyotype)', 'Normal karyotype',
+       'Trisomy/tetrasomy 8 (isolated)',
+       'inv(16)(p13.1q22)/t(16;16)(p13.1;q22)/CBFB-MYH11 (Irrespective of additional cytogenetic abnormalities)',
+       't(6;9)(p23;q34) (Irrespective of additional cytogenetic abnormalities)',
+       't(8;21)(q22;q22)/RUNX1-RUNX1T1 (Irrespective of additional cytogenetic abnormalities)',
+       'FLT3-ITD mutation', 'IDH1-R132 mutation', 'NPM1 mutation','Sex_F']
 
-    def _set_data(self, DS, subset = None, rm_unexpr = False, binarize = True):
-        if subset:
-            subset_ids = DS._CLIN_INFO["Cytogenetic risk"] == "intermediate cytogenetics"
-            self._GE_TPM = DS._GE_TPM.T[subset_ids].T
-            self.CF = DS._CLIN_INFO[subset_ids]
-            if binarize:
-                features = ["NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation","Age_at_diagnosis", "Sex"]
-                bin_features = [ "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation", "Sex"]
-                self._binarize_clin_infos(features, bin_features)
-            self.COHORT = DS.COHORT + "_int"
-        else : 
-            self._GE_TPM = DS._GE_TPM
-            self.CF = DS._CLIN_INFO
-            if binarize:
-                features = ["Cytogenetic risk", "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation","Age_at_diagnosis", "Sex"]
-                bin_features = ["Cytogenetic risk", "NPM1 mutation", "IDH1-R132 mutation", "FLT3-ITD mutation", "Sex"]
-                self._binarize_clin_infos(features, bin_features)
-            else: self.CF_bin = self.CF 
-            self.COHORT = DS.COHORT
+    def _set_data(self, DS, rm_unexpr = False):
+         
+        self._GE_TPM = DS._GE_TPM
+        self.CF = DS._CLIN_INFO
+        self._binarize_clin_infos() 
+        self.COHORT = DS.COHORT
         # select cds
         ### select based on repertoire
         # filtering if needed, merge with GE data  

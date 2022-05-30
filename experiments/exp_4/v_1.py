@@ -125,7 +125,6 @@ def run(args):
     HyperParams = HP_dict(args)
     data1 = SGE.new(args.COHORT, np.concatenate([mutations, cytogenetics, age_sex]), gene_expressions=None)
     # drop some low variance cols
-    pdb.set_trace()
     data1.x = data1.x[data1.x.columns[np.where(data1.x.var(0) > 0.01)]]
     data1.split_train_test(HyperParams.nfolds)
     params = HyperParams.generate_default("ridge_cph_lifelines_CF", data1)
@@ -136,64 +135,5 @@ def run(args):
     # get binarized age value (>60, <60)
     # combine to LSC17 profile
     # combine to PCA profile 
-    input_dims = np.arange(args.INPUT_DIMS[0], args.INPUT_DIMS[1], args.INPUT_DIMS[2])
-    # prepare performance result matrix
-    perfo_matrix = []
-    cyt = pd.DataFrame(SGE.data["CF"]["Cytogenetic risk"])
-    cyt_levels = [{"intermediate cytogenetics":1, "Intermediate/Normal":1, "adverse cytogenetics": 2, "favorable cytogenetics":0, "Favorable":0, "Standard":1, "Low":0, "Poor":2, None: 1}[level] for level in cyt["Cytogenetic risk"]] 
-    cyt["pred_risk"] = cyt_levels
-    cyt_c_scores_1, cyt_metrics_1 = functions.compute_cyto_risk_c_index(cyt["pred_risk"],CDS.y, gamma = 0.001, n = args.bootstr_n)
-    cyt_c_scores_2, cyt_metrics_2  = functions.compute_aggregated_bootstrapped_c_index(cyt["pred_risk"], CDS.y, n=args.bootstr_n)
-    params = HyperParams.generate_default("cytogenetic_risk", cyt["pred_risk"])
-    params["c_index_metrics"] = cyt_metrics_1[0]
-    params_file_outpath = os.path.join(run_logs_outdir, f"{tstamp}_run_params.csv")            
-    params_file = None
-    cyt["e"] = CDS.y["e"]
-    cyt["t"] = CDS.y["t"]
-    print("C index method 1: ", cyt_metrics_1)
-    print("C index method 2: ", cyt_metrics_2)
-    params["cohort"] = args.COHORT
-    plot_c_surv_3_groups(cyt, params, args.OUTPATH, group_weights = Counter(cyt_levels))
-    pdb.set_trace()
-    if params_file is None : params_file = pd.DataFrame(params, index = [0])
-    else: params_file = pd.concat([params_file, pd.DataFrame(params)])
-         
-    #print(cyt_metrics)
-    perfo_matrix.append(("cyto.risk_scores", cyt_c_scores_1))
-    for model_type in args.MODEL_TYPES:  
-        # use LSC17 benchmark
-        LSC17.split_train_test(HyperParams.nfolds)
-        params = HyperParams.generate_default(model_type + "_LSC17", LSC17)
-        c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(LSC17, params, pca_n = None)
-        params["input_type"] = "LSC17"
-        params["cohort"] = args.COHORT
-        plot_c_surv_3_groups(surv_tbl, params, args.OUTPATH, group_weights = Counter(cyt_levels))
-        #plot_confusion_matrix(pred_risks, cyt, params, conf_matrix_outdir)
-        params_file = pd.concat([params_file, pd.DataFrame(params, index = [0])])
-        perfo_matrix.append((params["model_id"], c_scores))
-        for input_dim in input_dims:
-            # split training / valid
-            data = CDS.clone()
-            data.split_train_test(HyperParams.nfolds)
-            # generate Hyper-Parameter dict specific to model type
-            params = HyperParams.generate_default(model_type + "_PCA", data)
-            params["input_type"] = "PCA"
-            params["cohort"] = args.COHORT
-            c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data, params, pca_n = input_dim) 
-            plot_c_surv_3_groups(surv_tbl, params, args.OUTPATH, group_weights = Counter(cyt_levels))
-            #plot_confusion_matrix(pred_risks, cyt, params, conf_matrix_outdir)
-            params_file = pd.concat([params_file, pd.DataFrame(params, index = [0])])
-            perfo_matrix.append((params["model_id"], c_scores))
-             # dump params matrix to run logs
-            
-            params_file.to_csv(params_file_outpath, index=False)
-    # dump performance matrix to perf_tables
-    perfo_file_outpath = os.path.join(perf_tables_outdir, f"{tstamp}_bootstrapped_c_indices.csv")
-    perfo_file = pd.DataFrame(dict(perfo_matrix))
-    perfo_file.to_csv(perfo_file_outpath, index = False)
-
-    # output runs logs 
-    # run models 
-    # print survival curves
-    # dump results to table 
+    
     
