@@ -126,7 +126,7 @@ def run(args):
        'Monosomy17/del17p (less than 3 chromosomal abnormalities)',
        'Hyperdiploid numerical abnormalities only']
        
-    HyperParams = HP_dict(args)
+    HyperParams = HP_dict(wd = 1e-3, nepochs = 200,  bootstr_n = 1000, nfolds = 5)
     # get chrom. rearragments
     # get mutation profile 
     # get binarized age value (>60, <60)
@@ -146,6 +146,7 @@ def run(args):
     for i in range(1, 11, 1):
         print(f"CPHDNN Nb Layers: {i} x (143 nodes)")
         data = SGE.new(args.COHORT, np.concatenate([mutations, cytogenetics, age_sex]), gene_expressions="LSC17")
+        pdb.set_trace()
         data.x = data.x[data.x.columns[np.where(data.x.var(0) > 0.01)]]
         data.split_train_test(HyperParams.nfolds)
         params = HyperParams.generate_default(f"cphdnn_{i}l", data)

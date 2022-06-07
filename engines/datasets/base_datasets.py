@@ -25,7 +25,7 @@ class Data:
             self.y.columns = ["t", "e"]
     
     def clone(self):
-        return Data(self.x, self.y, self.gene_info)
+        return Data(self.x, self.y, self.gene_info, name = self.name)
       
     def folds_to_cuda_tensors(self, device = "cuda:0"):
         if "cuda" in self.device : return 
@@ -53,10 +53,10 @@ class Data:
             test_y = self.y.loc[test_x.index]
             train_x = self.x.loc[~self.x.index.isin(test_x.index)]
             train_y = self.y.loc[train_x.index]
-            self.folds.append(Data(self.x, self.y,  self.gene_info))
-            self.folds[i].train = Data(train_x, train_y, self.gene_info)
+            self.folds.append(Data(self.x, self.y,  self.gene_info, name = self.name))
+            self.folds[i].train = Data(train_x, train_y, self.gene_info, name = self.name)
             self.folds[i].train.to(device)
-            self.folds[i].test = Data(test_x,test_y, self.gene_info)
+            self.folds[i].test = Data(test_x,test_y, self.gene_info, name = self.name)
             self.folds[i].test.to(device)
         # reorder original data
         self._reindex_targets()
@@ -163,7 +163,9 @@ class SurvivalGEDataset():
             train_features = clinical_features.merge(LSC17_features.x, left_index = True, right_index = True)
         # manage target features
         target_features = self.data["CDS"].y
-        data = Data(x = train_features, y = target_features, gene_info=self.gene_repertoire)
+        data_name = "clin. factors + "+ gene_expressions if gene_expressions is not None else "clin. factors" 
+        
+        data = Data(x = train_features, y = target_features, gene_info=self.gene_repertoire, name= data_name)
         if (data.y.index != data.x.index).sum() > 0: raise(Exception, 'error: unmatch in index')
         return data
         
