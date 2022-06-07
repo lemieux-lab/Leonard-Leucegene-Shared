@@ -6,11 +6,11 @@ from datetime import datetime
 import hashlib 
 
 class HP_dict:
-    def __init__(self, args) -> None:
-        self.WD = args.WEIGHT_DECAY
-        self.nepochs = args.NEPOCHS
-        self.bootstr_n = args.bootstr_n
-        self.nfolds = args.NFOLDS
+    def __init__(self, wd, nepochs, bootstr_n, nfolds) -> None:
+        self.WD = wd
+        self.nepochs = nepochs
+        self.bootstr_n = bootstr_n
+        self.nfolds = nfolds
 
     def _ridge_cph_lifelines(self, train_data):
         params = defaultdict()

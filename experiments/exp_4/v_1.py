@@ -106,6 +106,8 @@ def run(args):
     perf_tables_outdir = utils.assert_mkdir(os.path.join(basepath, "PERF_TABLES"))
     # create runs outdir 
     run_logs_outdir = utils.assert_mkdir(os.path.join(basepath, "RUN_LOGS"))
+    # create training curves
+    trai_curves_outdir = utils.assert_mkdir(os.path.join(basepath, "TRAIN_CURVES"))
     # prepare input data
     SGE = SurvivalGEDataset()
     mutations = ["NPM1 mutation", "FLT3-ITD mutation", "IDH1-R132 mutation"]
@@ -123,6 +125,7 @@ def run(args):
        't(6;9)(p23;q34) (Irrespective of additional cytogenetic abnormalities)',
        'Monosomy17/del17p (less than 3 chromosomal abnormalities)',
        'Hyperdiploid numerical abnormalities only']
+       
     HyperParams = HP_dict(args)
     # get chrom. rearragments
     # get mutation profile 
