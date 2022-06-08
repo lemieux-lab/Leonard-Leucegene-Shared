@@ -76,15 +76,15 @@ def compute_cyto_risk_c_index(scores, target, gamma = 0.01, n = 10):
     c_ind_max = c_scores[int(n*0.95)]
     return c_scores, (c_ind_med, c_ind_min, c_ind_max)
 
-def compute_pca_loadings(data, pca_n):
+def compute_pca_loadings(data, pca_params):
     """
     From sklearn source code 
     """
-    if pca_n is None: return None
+    if pca_params is None: return None
     pca = PCA()
-    pca.fit(data)
+    pca.fit(data.iloc[:,pca_params["min_col"]:pca_params["max_col"]])
 
-    return {"components": pca.components_[:pca_n], "mean" : pca.mean_}
+    return {"components": pca.components_[:pca_params["pca_n"]], "mean" : pca.mean_}
 
 def compute_aggregated_bootstrapped_c_index(scores, data, n=10000):
     c_scores = []

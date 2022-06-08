@@ -11,6 +11,7 @@ class HP_dict:
         self.nepochs = nepochs
         self.bootstr_n = bootstr_n
         self.nfolds = nfolds
+        self.nnodes = 100
 
     def _ridge_cph_lifelines(self, train_data):
         params = defaultdict()
@@ -42,7 +43,7 @@ class HP_dict:
         params["input_size"] = train_data.folds[0].train.x.shape[1] # dataset dependent!
         # weight decay or L2
         params["wd"] = self.WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
-        params["W"] = 143 # np.random.randint(3,2048) # V2 Reasonable
+        params["W"] = self.nnodes # np.random.randint(3,2048) # V2 Reasonable
         params["D"] = 2 # np.random.randint(2,4) # V2 Reasonable
         # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
         params["nL"] = np.random.choice([nn.ReLU()]) 
@@ -431,7 +432,28 @@ class HP_dict:
         params["modeltype"] = "ridge_cph_lifelines"
         params["bootstrap_n"] = self.bootstr_n
         return params
-
+    
+    def _ridge_cph_lifelines_CF_PCA(self, data):
+        params = defaultdict()
+        params["model_id"] = hashlib.sha1(str(datetime.now()).encode()).hexdigest() # create random id for storage purposes 
+        params["nepochs"] = 0
+        params["nfolds"] = self.nfolds
+        params["cohort"] = data.name
+        params["input_size"] = data.folds[0].train.x.shape[1] # dataset dependent!
+        # weight decay or L2
+        params["wd"] = self.WD #np.power(10, np.random.uniform(-10, -1)) # V2 reasonable range for WD after analysis on V1 
+        params["W"] = 0 # np.random.randint(3,2048) # V2 Reasonable
+        params["D"] = 0 # np.random.randint(2,4) # V2 Reasonable
+        # self.params["dp"] = np.random.uniform(0,0.5) # cap at 0.5 ! (else nans in output)
+        params["nL"] = 0
+        params["ARCH"] = None
+        params["input_type"] = "clinical factors + PCA"
+        params["device"] = None
+        params["lr"] = None
+        params["linear"]  = True
+        params["modeltype"] = "ridge_cph_lifelines"
+        params["bootstrap_n"] = self.bootstr_n
+        return params
     
 
     def generate_default(self, model_type, data):
@@ -441,6 +463,7 @@ class HP_dict:
             "ridge_cph_lifelines_CDS": self._ridge_cph_lifelines,
             "ridge_cph_lifelines_CF": self._ridge_cph_lifelines_CF,
             "ridge_cph_lifelines_CF_LSC17": self._ridge_cph_lifelines_CF_LSC17,
+            "ridge_cph_lifelines_CF_PCA": self._ridge_cph_lifelines_CF_PCA, 
             "cphdnn_1l": self._CPHDNN_1l,
             "cphdnn_2l": self._CPHDNN_2l,
             "cphdnn_3l": self._CPHDNN_3l,

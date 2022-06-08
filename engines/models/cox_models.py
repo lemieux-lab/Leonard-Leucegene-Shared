@@ -14,13 +14,13 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA 
 
 # METHODS
-def evaluate(data, params, pca_n = None):
+def evaluate(data, params, pca_params = None):
     
     
     # correct input size
-    if pca_n : params["input_size"] = pca_n
+    if pca_params : params["input_size"] = pca_params["pca_n"] + max(pca_params["min_col"],1) - 1
     # instanciate new model container 
-    model = CPH( data, params, pca_n)
+    model = CPH( data, params, pca_params)
     # - train models through cross_validation 
     # - return aggregated predicted risk scores list
     # - return aggr. bootstrapped c_indices scores 
@@ -65,26 +65,26 @@ class ridge_cph:
 
 # CPH container class       
 class CPH:
-    def __init__(self, data, params, pca_n):
+    def __init__(self, data, params, pca_params):
         picker = {"ridge_cph_lifelines": ridge_cph_lifelines, 
         "CPHDNN": CPHDNN}
         self.model_type = params["modeltype"]
         self.model = picker[self.model_type](params)
         self.data = data
         self.params = params
-        self.pca_n = pca_n
+        self.pca_params= pca_params
 
     def cross_validation(self):
         vld_scores = []    
         train_c_indices = []    
         for foldn in tqdm(range(self.params["nfolds"]), desc = f"{self.params['cohort']}; {self.params['modeltype']}, INsize: {self.params['input_size']}"):
             # get PCA loadings for input transf. if needed 
-            pca = functions.compute_pca_loadings(self.data.folds[foldn].train.x, self.pca_n)
+            pca = functions.compute_pca_loadings(self.data.folds[foldn].train.x, self.pca_params)
             # train model on fold
-            train_c_index = self._train_on_fold(foldn, transform_input = pca)
+            train_c_index = self._train_on_fold(foldn, pca_params = self.pca_params, transform_input = pca)
             train_c_indices.append(train_c_index)
             # inference on foldn vld set
-            out = self._valid_on_fold(foldn, transform_input = pca)
+            out = self._valid_on_fold(foldn, pca_params = self.pca_params, transform_input = pca)
             #print("tr_metrics:", train_c_index)
             #print("vld_metrics:", float(l), c)
             #plot_training(train_metrics["loss"], train_metrics["c_index"], foldn, self.hp_dict["modeltype"])
@@ -96,24 +96,24 @@ class CPH:
         
         return metrics, c_scores,  vld_scores
 
-    def _train_on_fold(self, fold_index, transform_input):
+    def _train_on_fold(self, fold_index, pca_params, transform_input):
         # gets current fold data
         fold_train_data = self.data.folds[fold_index].train
         # transforms according to loadings
-        if transform_input is not None: 
-            new_df = pd.DataFrame(np.dot(fold_train_data.x.values - transform_input["mean"], transform_input["components"].T), index = fold_train_data.x.index)
-            fold_train_data.x = new_df
+        if pca_params is not None: 
+            new_df = pd.DataFrame(np.dot(fold_train_data.x.iloc[:,pca_params["min_col"]:pca_params["max_col"]].values - transform_input["mean"], transform_input["components"].T), index = fold_train_data.x.index)
+            fold_train_data.x = fold_train_data.x.iloc[:, :max(pca_params["min_col"],1)-1].merge(new_df, left_index = True, right_index = True)
         # performs training of model
         train_c = self.model._train(fold_train_data)
         return train_c
 
-    def _valid_on_fold(self, fold_index, transform_input):
+    def _valid_on_fold(self, fold_index, pca_params, transform_input):
         # gets current fold data
         fold_vld_data = self.data.folds[fold_index].test
         # transforms according to loadings
         if transform_input is not None: 
-            new_df = pd.DataFrame(np.dot(fold_vld_data.x.values - transform_input["mean"], transform_input["components"].T), index = fold_vld_data.x.index)
-            fold_vld_data.x = new_df
+            new_df = pd.DataFrame(np.dot(fold_vld_data.x.iloc[:,pca_params["min_col"]:pca_params["max_col"]].values - transform_input["mean"], transform_input["components"].T), index = fold_vld_data.x.index)
+            fold_vld_data.x = fold_vld_data.x.iloc[:, :pca_params["min_col"]-1].merge(new_df, left_index = True, right_index = True)
         # inference
         out = self.model._valid(fold_vld_data)
         return out

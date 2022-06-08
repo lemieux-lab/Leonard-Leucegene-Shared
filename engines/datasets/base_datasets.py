@@ -151,20 +151,39 @@ class SurvivalGEDataset():
         self.learning = True
         self.gene_repertoire = self.process_gene_repertoire_data()
     
-    def new(self, cohort, clinical_factors, gene_expressions):
-        self.get_data(cohort)
-        # manage clinical factors
-        clinical_features = self.data["CF_bin"][clinical_factors]
-        # manage gene expressions
-        if gene_expressions is None:
-            train_features = clinical_features
-        elif gene_expressions == "LSC17":
-            LSC17_features = self.data["LSC17"]
-            train_features = clinical_features.merge(LSC17_features.x, left_index = True, right_index = True)
-        # manage target features
-        target_features = self.data["CDS"].y
-        data_name = "clin. factors + "+ gene_expressions if gene_expressions is not None else "clin. factors" 
-        
+    def new(self, clinical_factors, gene_expressions):
+        if clinical_factors is None:
+            if "LSC17+PCA" in gene_expressions:
+                LSC17_features = self.data["LSC17"]
+                train_features = LSC17_features.x.merge(self.data["CDS"].x, left_index = True, right_index = True)
+
+            elif "LSC17" in gene_expressions :
+                LSC17_features = self.data["LSC17"]
+                train_features = LSC17_features.x
+            elif "PCA" in gene_expressions:
+                ge_features = self.data["CDS"]
+                train_features = ge_features.x
+            else: return None
+            data_name = gene_expressions
+        else: 
+            # manage clinical factors
+            clinical_features = self.data["CF_bin"][clinical_factors]
+            # manage gene expressions
+            if "LSC17+PCA" in gene_expressions:
+                LSC17_features = self.data["LSC17"].x.merge(self.data["CDS"].x, left_index = True, right_index = True)
+                train_features = clinical_features.merge(LSC17_features, left_index = True, right_index = True)
+
+            elif "LSC17" in gene_expressions :
+                LSC17_features = self.data["LSC17"]
+                train_features = clinical_features.merge(LSC17_features.x, left_index = True, right_index = True)
+            elif "PCA" in gene_expressions:
+                ge_features = self.data["CDS"]
+                train_features = clinical_features.merge(ge_features.x, left_index = True, right_index = True) 
+            else : train_features = clinical_features 
+            # manage target features
+            
+            data_name = "clin. factors + "+ gene_expressions if gene_expressions is not None else "clin. factors" 
+        target_features = self.data["CDS"].y   
         data = Data(x = train_features, y = target_features, gene_info=self.gene_repertoire, name= data_name)
         if (data.y.index != data.x.index).sum() > 0: raise(Exception, 'error: unmatch in index')
         return data
