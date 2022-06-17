@@ -8,5 +8,9 @@
 env
 Data
 experiments/plots_1
-
+RES
+notebooks
+fig_dump
+source_data
+*.pyc
 tests_julia/output

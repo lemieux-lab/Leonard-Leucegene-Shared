@@ -1,3 +1,4 @@
+using Pkg
 using CSV 
 using DataFrames
 using Dates
@@ -5,27 +6,22 @@ using CUDA
 using Flux
 using Statistics
 using Random
-using Gadfly
 using ProgressBars
-using Cairo
-
 filename = "/u/sauves/leucegene-shared/Data/LEUCEGENE/lgn_pronostic_GE_CDS_TPM.csv"
 #GE_TRSC_TPM = DataFrame(CSV.File(filename))
 @time GE_CDS_TPM = CSV.read(filename, DataFrame)
-
+print()
 mutable struct Data
     name::String
     data::Array
     factor_1::Array
     factor_2::Array
-end
-
+end 
 mutable struct FoldData 
     name::String 
     train::Data
     test::Data
 end 
-
 index = GE_CDS_TPM[:,1]
 data = GE_CDS_TPM[:,2:end] 
 cols = names(data)
@@ -35,7 +31,7 @@ data = log10.(Array(data) .+ 1)
 ge_var = var(data,dims = 1) 
 ge_var_med = median(ge_var)
 # high variance only 
-hvg = getindex.(findall(ge_var .> ge_var_med),2)[1:Int(floor(end/10))]
+hvg = getindex.(findall(ge_var .> ge_var_med),2)
 data = data[:,hvg]
 cols = cols[hvg]
 # verify that the operation worked
@@ -55,6 +51,11 @@ for i in 1:nfolds
     fold_data = FoldData("fold_$i", train, test)
     folds[i] = fold_data
 end
+folds[1].train.factor_1
+folds[1].train.data
+
+
+
 
 function prep_data(data::Data; device = gpu)
     ## data preprocessing
@@ -76,8 +77,7 @@ function prep_data(data::Data; device = gpu)
         end
     end
     return (device(factor_1_index), device(factor_2_index)), device(values)
-end
-
+end 
 function custom_train!(loss, ps, data, opt, loss_data, epoch)
     loss_array = Array{Float32,1}(undef, length(data))
 
@@ -101,34 +101,6 @@ function nn(factor_1_layer, factor_2_layer, (a, b, c))
         Dense(c, 1, identity)
     )
 end
-
-function get_obtained_expected(X, Y, network, device)
-    nb = 10000
-    index = rand(1:length(Y), nb)
-
-    obtained = cpu(Y)[index]
-
-    X_cpu = cpu(X)
-    factor_1 = X_cpu[1][index]
-    factor_2 = X_cpu[2][index]
-    
-    expected = cpu(network((device(factor_1), device(factor_2))))
-
-    return obtained, expected[1,:]
-end
-
-function plot_accuracy(folder, epoch, obtained, expected)
-    corP = Statistics.cor(obtained, expected)
-    draw(
-        PNG("$(folder)/accuracy_at_epoch_$epoch.png"), 
-        plot(
-            x=expected, y=obtained, Guide.title("Accuracy at epoch $epoch (r = $corP)"), 
-            Guide.xlabel("Expected"), Guide.ylabel("Obtained"), Geom.abline, 
-            Geom.hexbin(xbincount=100, ybincount=100)
-        )
-    )
-end
-
 function train_embeddings(dl, X_, Y_, (dims1, dims2), folder, data, epochs = 200; device = gpu)
     #prepare outpath
     mkdir("$(folder)")
@@ -157,11 +129,6 @@ function train_embeddings(dl, X_, Y_, (dims1, dims2), folder, data, epochs = 200
     # cycle through epochs
     for e in ProgressBar(1:epochs)
         custom_train!(loss, ps, dl, opt, loss_data, e)
-        obtained, expected = get_obtained_expected(X_, Y_, network, device)
-        #println(iter, "Prepare intermediate accuracy plot at epoch $(i)...")
-        plot_accuracy(folder, e, obtained, expected)
-        
-    
     end
     println("final loss: $(loss_data[end])")
 
@@ -175,6 +142,8 @@ X_tr, Y_tr = prep_data(fold_data.train)
 train_dl =  Flux.Data.DataLoader((X_tr, Y_tr), batchsize = mb_size)
 X_tst, Y_tst = prep_data(fold_data.test)
 test_dl = Flux.Data.DataLoader((X_tst, Y_tst), batchsize = mb_size)
-
-train_embeddings(train_dl, X_tr, Y_tr, (2,2), "$(outpath)/embeddings_$(now())", fold_data.train, 100)
+#println(size(X_tr[1]))
+#println(size(X_tst[1]))
+# train embedding, retrieve model
+train_embeddings(train_dl, X_tr, Y_tr, (2,2), "$(outpath)/embeddings_$(now())", fold_data.train, 500)
 
