@@ -90,7 +90,7 @@ opt = Flux.ADAM(tr)
 
 
 fold_data = folds[1]
-X_, Y_ = prep_data(fold_data.train)
+X_, Y_ = prep_data(fold_data.train.data)
 nsamples = length(fold_data.train.factor_1)
 ngenes = length(fold_data.train.factor_2)
 emb_layer_1 = gpu(Flux.Embedding(nsamples, emb_size_1))
