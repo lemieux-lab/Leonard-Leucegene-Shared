@@ -26,6 +26,7 @@ struct FoldData
     test::Data
 end 
 
+device!(1)
 index = GE_CDS_TPM[:,1]
 data = GE_CDS_TPM[:,2:end] 
 cols = names(data)
@@ -90,7 +91,7 @@ opt = Flux.ADAM(tr)
 
 
 fold_data = folds[1]
-X_, Y_ = prep_data(fold_data.train)
+X_, Y_ = prep_data(fold_data.train.data)
 nsamples = length(fold_data.train.factor_1)
 ngenes = length(fold_data.train.factor_2)
 emb_layer_1 = gpu(Flux.Embedding(nsamples, emb_size_1))
@@ -101,7 +102,7 @@ Dense(a, b, relu),
 Dense(b, c, relu),
 Dense(c, 1, identity)))
 
-loss = Flux.Losses.mse(model(x), y)
+loss(x, y)= Flux.Losses.mse(model(x), y)
 
 loss_array = Array{Float32, 1}(undef, nepochs)
 loss_array
@@ -117,3 +118,4 @@ loss_array
 end
 loss_array
 # forward prop 
+  
