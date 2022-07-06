@@ -9,9 +9,15 @@ using Gadfly
 using ProgressBars
 using Cairo
 
-filename = "/u/sauves/leucegene-shared/Data/LEUCEGENE/lgn_pronostic_GE_CDS_TPM.csv"
+basepath = "/u/sauves/leucegene-shared"
+outpath  = "./RES/EMBEDDINGS" # our output directory
+outdir = "$(outpath)/embeddings_$(now())"
+mkdir(outdir)
+counts_file = "$(basepath)/Data/LEUCEGENE/lgn_pronostic_GE_CDS_TPM.csv"
 #GE_TRSC_TPM = DataFrame(CSV.File(filename))
-@time GE_CDS_TPM = CSV.read(filename, DataFrame)
+@time GE_CDS_TPM = CSV.read(counts_file, DataFrame)
+clinical_f_file = "$(basepath)/Data/LEUCEGENE/lgn_pronostic_CF"
+CF = CSV.read(clinical_f_file, DataFrame)
 
 struct Data
     name::String
@@ -47,8 +53,11 @@ indices = shuffle(Array{Int}(1:nsamples))
 nfolds = 5
 foldsize = Int(nsamples / 5)
 # training metavariables
-nepochs = 10_000
+nepochs = 500
 tr = 0.001
+wd = 1e-3
+patient_emb_size = 2
+gene_emb_size = 50 
 
 
 folds = Array{FoldData}(undef,5)
@@ -60,11 +69,20 @@ for i in 1:nfolds
     fold_data = FoldData("fold_$i", train, test)
     folds[i] = fold_data
 end
+function l2_penalty(model)
+    penalty = 0
+    for layer in model[2:end]
+        if typeof(layer) != typeof(vec) && typeof(layer) != typeof(Flux.Parallel)
+            penalty += sum(abs2, layer.weight)
+        end
+    end
+    return penalty
+end
 
 function plot_accuracy(epoch, obtained, expected)
     corP = Statistics.cor(obtained, expected)
     draw(
-        PNG("output/accuracy_at_epoch_$epoch.png"), 
+        PNG("$(outdir)/accuracy_at_epoch_$epoch.png"), 
         plot(
             x=expected, y=obtained, Guide.title("Accuracy at epoch $epoch (r = $corP)"), 
             Guide.xlabel("Expected"), Guide.ylabel("Obtained"), Geom.abline, 
@@ -103,7 +121,8 @@ function prep_data(data::Data; device = gpu)
     #print(size(values))
     factor_1_index = Array{Int32,1}(undef, n * m)
     factor_2_index = Array{Int32,1}(undef, n * m)
-    # d3_index = Array{Int32,1}(undef, n * m)
+     # d3_index = Array{Int32,1}(undef, n * m)
+    
     for i in 1:n
         for j in 1:m
             index = (i - 1) * m + j 
@@ -118,7 +137,7 @@ end
 
 function generate_2D_embedding(data::Data)
     X_, Y_ = prep_data(data)
-    model = nn(2, 2, length(data.factor_1), length(data.factor_2))
+    model = nn(patient_emb_size, gene_emb_size, length(data.factor_1), length(data.factor_2))
     loss_array = Array{Float32, 1}(undef, nepochs)
     opt = Flux.ADAM(tr)
 
@@ -133,6 +152,7 @@ function generate_2D_embedding(data::Data)
     end
     
     accuracy = cor(cpu(model(X_)), cpu(Y_))
+    
     plot_accuracy(nepochs, cpu(model(X_)), cpu(Y_))
     return cpu(transpose(model[1][1].weight)), loss_array, accuracy
 end
@@ -158,7 +178,7 @@ function nn(emb_size_1::Int, emb_size_2::Int, f1_size::Int, f2_size::Int)
 end
 
 loss(x, y)= Flux.Losses.mse(model(x), y)
-loss(x, y, model)= Flux.Losses.mse(model(x), y)
+loss(x, y, model) = Flux.Losses.mse(model(x), y) + l2_penalty(model) * wd
 # loss(X_, Y_)
 
 data_struct = Data("full", data_full, index, cols)
@@ -167,23 +187,36 @@ embed_2, losses_2, acc_2 = generate_2D_embedding(data_struct)
 
 println("accuracy_1 $acc_1\naccuracy_2: $acc_2")
 
-graph_1 = plot(x=embed_1[:, 1], y=embed_1[:, 2], 
-    label=index, Geom.point, Geom.label, 
-    Theme(panel_fill="white"),
-    Coord.cartesian(xmin=-5, xmax=5, ymin=-5, ymax=5)
-)
-graph_2 = plot(x=embed_2[:, 1], y=embed_2[:, 2], 
-    label=index, Geom.point, Geom.label, 
-    Theme(panel_fill="white"),
-    Coord.cartesian(xmin=-5, xmax=5, ymin=-5, ymax=5)
-)
+df1 = DataFrame(Dict([("emb$i", embed_1[:,i]) for i in 1:size(embed_1)[2]]))
+df2 = DataFrame(Dict([("emb$i", embed_2[:,i]) for i in 1:size(embed_2)[2]]))
+df1.index = index
+df2.index = index
 
-df = DataFrame(losses_1 = losses_1, losses_2 = losses_2, epoch=1:nepochs)
-graph_loss = plot(stack(df, [:losses_1, :losses_2]), x=:epoch, y=:value, 
-        color=:variable, Guide.xlabel("Epoch"), Guide.ylabel("Loss"), 
-        Guide.title("Loss per epoch"), Theme(panel_fill="white"), Geom.line)
+CSV.write("$outdir/output_embedding_1", df1)
+CSV.write("$outdir/output_embedding_2", df2)
 
+# graph_1 = plot(x=embed_1[:, 1], y=embed_1[:, 2], 
+#     label=index, Geom.point, Geom.label, 
+#     ,
+#     Coord.cartesian(xmin=-5, xmax=5, ymin=-5, ymax=5)
+# )
+# graph_2 = plot(x=embed_2[:, 1], y=embed_2[:, 2], 
+#     label=index, Geom.point, Geom.label, 
+#     Theme(panel_fill="white"),
+#     Coord.cartesian(xmin=-5, xmax=5, ymin=-5, ymax=5)
+# )
+# binsize =  10
+# graph1 = plot_embedding(embed_1, nepochs, binsize)
+# graph2 = plot_embedding(embed_2, nepochs, binsize)
+# #df = DataFrame(losses_1 = losses_1, losses_2 = losses_2, epoch=1:nepochs)
+# #graph_loss = plot(stack(df, [:losses_1, :losses_2]), x=:epoch, y=:value, 
+#         color=:variable, Guide.xlabel("Epoch"), Guide.ylabel("Loss"), 
+#         Guide.title("Loss per epoch"), Theme(panel_fill="white"), Geom.line)
 
-draw(PNG("./output/graph_embed_1.png"), graph_1)
-draw(PNG("./output/graph_embed_2.png"), graph_2)
-draw(PNG("./output/graph_loss.png"), graph_loss)
+# draw(SVG("$(outdir)/graph_embed_1.svg"), graph1)
+# draw(PNG("$(outdir)/graph_embed_1.png"), graph1)
+
+# draw(SVG("$(outdir)/graph_embed_2.svg"), graph2)
+# draw(PNG("$(outdir)/graph_embed_2.png"), graph2)
+
+# draw(SVG("$(outdir)/graph_loss.svg"), graph_loss)
