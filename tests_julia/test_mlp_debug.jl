@@ -53,7 +53,7 @@ indices = shuffle(Array{Int}(1:nsamples))
 nfolds = 5
 foldsize = Int(nsamples / 5)
 # training metavariables
-nepochs = 500
+nepochs = 10_000
 tr = 0.001
 wd = 1e-3
 patient_emb_size = 2
@@ -191,7 +191,10 @@ df1 = DataFrame(Dict([("emb$i", embed_1[:,i]) for i in 1:size(embed_1)[2]]))
 df2 = DataFrame(Dict([("emb$i", embed_2[:,i]) for i in 1:size(embed_2)[2]]))
 df1.index = index
 df2.index = index
-
+df1.group1 = CF[:,"Cytogenetic risk"]
+df2.group1 = CF[:,"Cytogenetic risk"]
+df1.group2 =  CF[:,"WHO classification"] 
+df2.group2 =  CF[:,"WHO classification"]
 CSV.write("$outdir/output_embedding_1", df1)
 CSV.write("$outdir/output_embedding_2", df2)
 

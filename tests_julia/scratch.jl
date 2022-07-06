@@ -1,180 +1,91 @@
-using CSV 
-using DataFrames
-using Dates
 using CUDA
 using Flux
-using Statistics
-using Random
-using Gadfly
-using ProgressBars
-using Cairo
+x = [1,2,3]
+x =[1 2;3 4]
+x = rand(Float32, 5,3)
+W = rand(5,10)
+x = rand(10)
+f(x) = 3*x^2 + 2x + 1
+f(5)
+df(x) = gradient(f, x)[1]
+df(5)
 
-filename = "/u/sauves/leucegene-shared/Data/LEUCEGENE/lgn_pronostic_GE_CDS_TPM.csv"
-#GE_TRSC_TPM = DataFrame(CSV.File(filename))
-@time GE_CDS_TPM = CSV.read(filename, DataFrame)
+mysin(x) = sum((-1)^k*x^(1+2k)/factorial(1+2k) for k in 0:5)
+x = 0.5
 
-mutable struct Data
-    name::String
-    data::Array
-    factor_1::Array
-    factor_2::Array
+mysin(x), gradient(mysin,x)[1]
+sin(x), cos(x)
+myloss(W, b, x) = sum(W * x .+ b)
+W = randn(5,7)
+b = zeros(5)
+x = rand(7)
+# basic syntax (function, (parameters))
+gradient(myloss, W, b, x)
+
+using Flux: params
+nnodes = 4
+input_dim = 12
+W = randn(nnodes, input_dim)
+b = zeros(nnodes)
+x = rand(input_dim)
+y1(x) = sum(W * x .+ b)
+# other syntax using anon. fn 
+grads = gradient(()->y1(x), params([W, b]))
+grads[b]
+# other syntax
+
+
+m = Dense(10,5)
+x = rand(Float32, 10)
+m(x)
+params(m)
+m = Chain(Dense(10,5, relu), Dense(5,2), softmax)
+l(x) = sum(Flux.crossentropy(m(x), [0.5,0.5]))
+params(m)
+# final syntax 
+grads = gradient(params(m)) do 
+    l(x)
+end
+for p in params(m)
+    println(grads[p])
+end 
+using Flux.Optimise: update!, Descent
+mu = 0.1
+for p in params(m)
+  p .-= mu * grads[p]
+end
+# which is totally equivalent to
+opt = Descent(mu)
+for p in params(m)
+    update!(opt, p, grads[p])
 end
 
-mutable struct FoldData 
-    name::String 
-    train::Data
-    test::Data
+# but very useful when using a more complex optimizer such as adam 
+opt = Flux.Optimise.ADAM(mu)
+for p in params(m)
+    update!(opt, p, grads[p])
 end 
 
-index = GE_CDS_TPM[:,1]
-data = GE_CDS_TPM[:,2:end] 
-cols = names(data)
-# log transforming
-data = log10.(Array(data) .+ 1)
-# remove least varying genes
-ge_var = var(data,dims = 1) 
-ge_var_med = median(ge_var)
-# high variance only 
-hvg = getindex.(findall(ge_var .> ge_var_med),2)[1:Int(floor(end/10))]
-data = data[:,hvg]
-cols = cols[hvg]
-# verify that the operation worked
-sum(var(data, dims = 1) .< ge_var_med)
-# split into train test
-nsamples = length(index)
-indices = shuffle(Array{Int}(1:nsamples))
-nfolds = 5
-foldsize = Int(nsamples / 5)
+loss(x,y) = sum(Flux.crossentropy(m(x), y))
 
-folds = Array{FoldData}(undef,5)
-for i in 1:nfolds
-    tst_idx = indices[(i - 1) * foldsize + 1: i * foldsize]
-    tr_idx = setdiff(indices, tst_idx)
-    test = Data("test", data[tst_idx,:], index[tst_idx], cols)
-    train = Data("train", data[tr_idx,:], index[tr_idx], cols)
-    fold_data = FoldData("fold_$i", train, test)
-    folds[i] = fold_data
-end
-
-function prep_data(data::Data; device = gpu)
-    ## data preprocessing
-    ### remove index columns, log transform
-    n = length(data.factor_1)
-    m = length(data.factor_2)
-    values = Array{Float32,2}(undef, (1, n * m))
-    #print(size(values))
-    factor_1_index = Array{Int32,1}(undef, n * m)
-    factor_2_index = Array{Int32,1}(undef, n * m)
-    # d3_index = Array{Int32,1}(undef, n * m)
-    for i in 1:n
-        for j in 1:m
-            index = (i - 1) * m + j 
-            values[1, index] = data.data[i, j]
-            factor_1_index[index] = i # Int
-            factor_2_index[index] = j # Int 
-            # d3_index[index] = data.d3_index[i] # Int 
-        end
+for i in 1:5
+    data, labels = rand(10,100), fill(0.5,2,100)
+    gs = gradient(params(m)) do
+        l = loss(data, labels) 
     end
-    return (device(factor_1_index), device(factor_2_index)), device(values)
+    update!(opt, params(m), gs)
 end
 
-function custom_train!(loss, ps, data, opt, loss_data, epoch)
-    loss_array = Array{Float32,1}(undef, length(data))
+# challenge: write gradient function to this model
+W = rand(2, 5)
+b = rand(2)
 
-    for (i, (x, y)) in enumerate(data)
-        loss_array[i] = loss(x, y)
-        
-        gs = gradient(ps) do
-            loss(x, y)
-        end
-        Flux.update!(opt, ps, gs)
-    end
+predict(x) = W*x .+ b
 
-    loss_data[epoch] = mean(loss_array)
+function loss(x, y)
+  ŷ = predict(x)
+  sum((y .- ŷ).^2)
 end
 
-function nn(factor_1_layer, factor_2_layer, (a, b, c))
-    return Chain(
-        Flux.Parallel(vcat, factor_1_layer, factor_2_layer),
-        Dense(a, b, relu),
-        Dense(b, c, relu),
-        Dense(c, 1, identity)
-    )
-end
-
-function get_obtained_expected(X, Y, network, device)
-    nb = 10000
-    index = rand(1:length(Y), nb)
-
-    obtained = cpu(Y)[index]
-
-    X_cpu = cpu(X)
-    factor_1 = X_cpu[1][index]
-    factor_2 = X_cpu[2][index]
-    
-    expected = cpu(network((device(factor_1), device(factor_2))))
-
-    return obtained, expected[1,:]
-end
-
-function plot_accuracy(folder, epoch, obtained, expected)
-    corP = Statistics.cor(obtained, expected)
-    draw(
-        PNG("$(folder)/accuracy_at_epoch_$epoch.png"), 
-        plot(
-            x=expected, y=obtained, Guide.title("Accuracy at epoch $epoch (r = $corP)"), 
-            Guide.xlabel("Expected"), Guide.ylabel("Obtained"), Geom.abline, 
-            Geom.hexbin(xbincount=100, ybincount=100)
-        )
-    )
-end
-
-function train_embeddings(dl, X_, Y_, (dims1, dims2), folder, data, epochs = 200; device = gpu)
-    #prepare outpath
-    mkdir("$(folder)")
-    # construct embeddings & the neural net
-    d1_layer = device(Flux.Embedding(length(data.factor_1), dims1))
-    d2_layer = device(Flux.Embedding(length(data.factor_2), dims2))
-    
-    a = dims1 + dims2 
-    b = 50
-    c = 10 
-
-    network = device(nn(d1_layer, d2_layer, (a, b, c)))
-
-    loss(x, y) = Flux.Losses.mse(network(x), y)
-    ps = Flux.params(network)
-    tr = 0.001
-    opt = Flux.ADAM(tr)
-
-    neural_network = ("- Layer 1 : Embeddings\n" * 
-        "- Layer 2 : Dense($a, $b, relu)\n" *
-        "- Layer 3 : Dense($b, $c, relu)\n" *
-        "- Layer 4 : Dense($c, 1, identity)"
-    )
-    println(neural_network)
-    loss_data = Array{Float32,1}(undef, epochs)
-    # cycle through epochs
-    for e in ProgressBar(1:epochs)
-        custom_train!(loss, ps, dl, opt, loss_data, e)
-        obtained, expected = get_obtained_expected(X_, Y_, network, device)
-        #println(iter, "Prepare intermediate accuracy plot at epoch $(i)...")
-        plot_accuracy(folder, e, obtained, expected)
-        
-    
-    end
-    println("final loss: $(loss_data[end])")
-
-end
-
-outpath = "output"
-mb_size = 2 ^ 14
-fold_data = folds[1]
-
-X_tr, Y_tr = prep_data(fold_data.train)
-train_dl =  Flux.Data.DataLoader((X_tr, Y_tr), batchsize = mb_size)
-X_tst, Y_tst = prep_data(fold_data.test)
-test_dl = Flux.Data.DataLoader((X_tst, Y_tst), batchsize = mb_size)
-
-train_embeddings(train_dl, X_tr, Y_tr, (2,2), "$(outpath)/embeddings_$(now())", fold_data.train, 100)
-
+x, y = rand(5), rand(2) # Dummy data
+loss(x, y)
