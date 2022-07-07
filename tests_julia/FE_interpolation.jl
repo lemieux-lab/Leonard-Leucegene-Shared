@@ -52,8 +52,7 @@ indices = shuffle(Array{Int}(1:nsamples))
 nfolds = 5
 foldsize = Int(nsamples / 5)
 # training metavariables
-nepochs = 1_000
-nepochs_test = 1_000
+nepochs = 10_000
 tr = 1e-3
 wd = 1e-3
 patient_emb_size = 2
@@ -87,11 +86,11 @@ function prep_data(data::Data; device = gpu)
     m = length(data.factor_2)
     values = Array{Float32,2}(undef, (1, n * m))
     #print(size(values))
-    factor_1_index = Array{Int32,1}(undef, n * m)
-    factor_2_index = Array{Int32,1}(undef, n * m)
+    factor_1_index = Array{Int32,1}(undef, max(n * m, 1))
+    factor_2_index = Array{Int32,1}(undef, max(n * m, 1))
      # d3_index = Array{Int32,1}(undef, n * m)
     
-    for i in 1:n
+    while i <= n
         for j in 1:m
             index = (i - 1) * m + j 
             values[1, index] = data.data[i, j]
@@ -99,6 +98,7 @@ function prep_data(data::Data; device = gpu)
             factor_2_index[index] = j # Int 
             # d3_index[index] = data.d3_index[i] # Int 
         end
+        i+=1
     end
     return (device(factor_1_index), device(factor_2_index)), device(vec(values))
 end
@@ -156,20 +156,20 @@ df1.group3 = map(Int, zeros(size(df1)[1]))
 df1.group3[left_out] = 1
 CSV.write("$outdir/output_embedding_1", df1)
 
-function exec()
+function interpolate(data_struct, grid_points;nepochs_test=100, tr_test=0.001)
     X_, Y_ = prep_data(data_struct)
-    opt = Flux.Optimise.ADAM(tr)
-    grid_points = zeros(5,5) .+ (-2,-1,0,1,2)
+    opt = Flux.Optimise.ADAM(tr_test)
+   
     traject_x = zeros(nepochs_test * length(grid_points))
     traject_y = zeros(nepochs_test * length(grid_points))
     init_pos = Array{String}(undef, nepochs_test * length(grid_points))
-    grid_points
+
     for init_n in ProgressBar(1:length(grid_points))
         # copy the trained model 
         interp_model = nn(patient_emb_size, gene_emb_size, nsamples,length(cols) )
         Flux.loadparams!( interp_model, params(model))
         # Random init embedding for selected sample
-        init_coord = (grid_points[init_n], grid_points'[init_n])
+        init_coord = (grid_points[init_n][1], grid_points[init_n][2])
         params(interp_model)[1][:,left_out] = init_coord
         # Run interpolation
         for e in 1:nepochs_test
@@ -189,7 +189,22 @@ function exec()
     df = DataFrame(Dict([("init_pos", init_pos), ("emb1", traject_x ),("emb2", traject_y)]))
     CSV.write("$outdir/interpolation_trajectories", df)
 end 
-exec()
+function generate_grid_points(xmin, xmax, ymin,ymax;res=40)
+    x = ones(res, res) .+ LinRange(xmin-1,xmax-1,res)
+    y = ones(res, res) .+ LinRange(ymin-1,ymax-1,res)
+    grid_points = [(x,y) for (x,y) in zip(x, y')]
+    return grid_points
+end
+grid_points = generate_grid_points(-10,10,-10,10,res=10)
+function filter_data(data_struct, left_out)
+    new_data_struct = Data("left_out",
+    data_struct.data[left_out,:]',
+    [data_struct.factor_1[left_out]],
+    data_struct.factor_2,)
+    return new_data_struct
+end
+
+interpolate(data_struct, grid_points, nepochs_test = 2_000)
 
 println(loss(X_, Y_, model))
 embed_layer_test = cpu(model[1][1].weight')
