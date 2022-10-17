@@ -52,7 +52,7 @@ color_hue = traject_data %>% group_by(init_pos) %>% summarise() %>% mutate(tmp =
 to_plot = traject_data %>% left_join(color_hue)
 g = ggplot(emb1_data, aes(x = emb1, y = emb2))  + 
   geom_point(size = 3, col = "grey") + 
-  geom_point(data = to_plot, aes(x = emb1, y = emb2, col = color_hue), size = 0.5) + 
+  geom_point(data = to_plot, aes(x = emb1, y = emb2, group = factor(color_hue), colour = factor(color_hue)), size = 0.5) + 
   labs(title = "Patient embedding representation on Leucegene with interpolation trajectories", x = "Embedding 1", y = "Embedding 2") +
   coord_fixed() + 
   scale_x_continuous(limits= c(min_,max_)) + 

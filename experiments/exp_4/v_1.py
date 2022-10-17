@@ -110,6 +110,7 @@ def run(args):
     trai_curves_outdir = utils.assert_mkdir(os.path.join(basepath, "TRAIN_CURVES"))
     # prepare input data
     SGE = SurvivalGEDataset()
+     
     mutations = ["NPM1 mutation", "FLT3-ITD mutation", "IDH1-R132 mutation"]
     age_sex = ["Sex_F","Age_gt_60"]
     cytogenetics = ['MLL translocations (+MLL FISH positive) (Irrespective of additional cytogenetic abnormalities)',
@@ -142,16 +143,16 @@ def run(args):
     # data2.split_train_test(HyperParams.nfolds)
     # params = HyperParams.generate_default("ridge_cph_lifelines_CF_LSC17", data2)
     # c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data2, params, pca_n = None)
-
-    for i in range(1, 11, 1):
+    clinical_features = np.concatenate([mutations, cytogenetics, age_sex])
+    SGE.get_data("lgn_pronostic")
+    data = SGE.new(clinical_features, gene_expressions="LSC17") # clinical factors + lsc17 = 34 input features
+    data.x = data.x[data.x.columns[np.where(data.x.var(0) > 0.01)]]
+    data.split_train_test(HyperParams.nfolds)
+    for i in range(2, 11, 1):
         print(f"CPHDNN Nb Layers: {i} x (143 nodes)")
-        data = SGE.new(args.COHORT, np.concatenate([mutations, cytogenetics, age_sex]), gene_expressions="LSC17")
-        pdb.set_trace()
-        data.x = data.x[data.x.columns[np.where(data.x.var(0) > 0.01)]]
-        data.split_train_test(HyperParams.nfolds)
         params = HyperParams.generate_default(f"cphdnn_{i}l", data)
-        c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data, params, pca_n = None)
-        
+        c_index_metrics, c_scores, surv_tbl, params, model= cox_models.evaluate(data, params, pca_params = None)
+        pdb.set_trace()
     # combine CF profile to PCA profile 
     # data3 = SGE.new(args.COHORT, np.concatenate([mutations, cytogenetics, age_sex]), gene_expressions="PCA")
     

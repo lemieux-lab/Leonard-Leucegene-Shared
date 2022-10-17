@@ -31,7 +31,7 @@ def evaluate(data, params, pca_params = None):
     # store c index metrics
     params["c_index_metrics"] = c_index_metrics[0]
     # return scores and survival curves data
-    return (c_index_metrics, c_scores, surv_tbl, params)
+    return (c_index_metrics, c_scores, surv_tbl, params, model)
 
 class ridge_cph_lifelines:
     def __init__(self, params) -> None:

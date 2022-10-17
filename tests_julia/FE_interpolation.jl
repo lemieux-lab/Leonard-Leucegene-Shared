@@ -17,6 +17,7 @@ counts_file = "$(basepath)/Data/LEUCEGENE/lgn_pronostic_GE_CDS_TPM.csv"
 @time GE_CDS_TPM = CSV.read(counts_file, DataFrame)
 clinical_f_file = "$(basepath)/Data/LEUCEGENE/lgn_pronostic_CF"
 CF = CSV.read(clinical_f_file, DataFrame)
+using RedefStructs
 
 struct Data
     name::String
@@ -90,7 +91,7 @@ function prep_data(data::Data; device = gpu)
     factor_2_index = Array{Int32,1}(undef, max(n * m, 1))
      # d3_index = Array{Int32,1}(undef, n * m)
     
-    while i <= n
+    for i in 1:n
         for j in 1:m
             index = (i - 1) * m + j 
             values[1, index] = data.data[i, j]
@@ -98,7 +99,6 @@ function prep_data(data::Data; device = gpu)
             factor_2_index[index] = j # Int 
             # d3_index[index] = data.d3_index[i] # Int 
         end
-        i+=1
     end
     return (device(factor_1_index), device(factor_2_index)), device(vec(values))
 end
@@ -124,6 +124,8 @@ function generate_2D_embedding(data::Data)
     return model, cpu(transpose(model[1][1].weight)), loss_array, accuracy
 
 end
+
+
 function nn(emb_size_1::Int, emb_size_2::Int, f1_size::Int, f2_size::Int) 
     a = emb_size_1 + emb_size_2
     b, c = 50, 10
