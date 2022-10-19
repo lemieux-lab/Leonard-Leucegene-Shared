@@ -66,20 +66,24 @@ class ridge_cph:
 # CPH container class       
 class CPH:
     def __init__(self, data, params, pca_params):
-        picker = {"ridge_cph_lifelines": ridge_cph_lifelines, 
+        self.picker = {"ridge_cph_lifelines": ridge_cph_lifelines, 
         "CPHDNN": CPHDNN}
         self.model_type = params["modeltype"]
-        self.model = picker[self.model_type](params)
         self.data = data
         self.params = params
         self.pca_params= pca_params
 
+    def instanciate_model(self):
+        self.model = self.picker[self.model_type](self.params)
+    
     def cross_validation(self):
         vld_scores = []    
         train_c_indices = []    
         for foldn in tqdm(range(self.params["nfolds"]), desc = f"{self.params['cohort']}; {self.params['modeltype']}, INsize: {self.params['input_size']}"):
             # get PCA loadings for input transf. if needed 
             pca = functions.compute_pca_loadings(self.data.folds[foldn].train.x, self.pca_params)
+            # instanciate a new model 
+            self.instanciate_model()
             # train model on fold
             train_c_index = self._train_on_fold(foldn, pca_params = self.pca_params, transform_input = pca)
             train_c_indices.append(train_c_index)

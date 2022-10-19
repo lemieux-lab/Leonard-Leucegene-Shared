@@ -146,8 +146,9 @@ def run(args):
     clinical_features = np.concatenate([mutations, cytogenetics, age_sex])
     SGE.get_data("lgn_pronostic")
     data = SGE.new(clinical_features, gene_expressions="LSC17") # clinical factors + lsc17 = 34 input features
-    data.x = data.x[data.x.columns[np.where(data.x.var(0) > 0.01)]]
+    #data.x = data.x[data.x.columns[np.where(data.x.var(0) > 0.01)]]
     data.split_train_test(HyperParams.nfolds)
+    pdb.set_trace()
     for i in range(2, 11, 1):
         print(f"CPHDNN Nb Layers: {i} x (143 nodes)")
         params = HyperParams.generate_default(f"cphdnn_{i}l", data)
