@@ -22,7 +22,7 @@ class ExperimentLoader:
             "2": exp_2_1,
             "p1": plot_1_0,
             "3": exp_3_0,
-            "4": exp_4_2,
+            "4.2": exp_4_2,
             "4.1": exp_4_1,
             "poster": poster,
         }

@@ -82,6 +82,21 @@ def run(args):
     #         c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data, params, pca_params = pca_params)
     #         # append to results
     #         results.append((repn, params["modeltype"], data.name , c_index_metrics[0], c_index_metrics[1], c_index_metrics[2] ))
+    for repn in range(1,4,1):   
+        for model_type in ["ridge_cph_lifelines_CF_PCA", "cphdnn_1l"]:
+            data = pca_only.clone()
+            # preprocess data 
+            var = data.x.var(0)
+            data.x = data.x[data.x.columns[np.where( var > np.median(var))]]
+            # splitting
+            data.split_train_test(HyperParams.nfolds)
+            # generate model parameters 
+            params = HyperParams.generate_default(model_type = model_type, data = data)
+            pca_params = {"min_col": 0, "max_col": data.x.shape[1], "pca_n": 50 }
+            # train and evaluate model
+            c_index_metrics, c_scores, surv_tbl, params, model = cox_models.evaluate(data, params, pca_params = pca_params)
+            # append to results
+            results.append((repn, params["modeltype"], data.name , c_index_metrics[0], c_index_metrics[1], c_index_metrics[2] ))
 
     for repn in range(1,4,1):   
         for model_type in ["ridge_cph_lifelines_CF_PCA", "cphdnn_6l"]:
@@ -95,7 +110,7 @@ def run(args):
             params = HyperParams.generate_default(model_type = model_type, data = data)
             pca_params = {"min_col": 33, "max_col": data.x.shape[1], "pca_n": 25 }
             # train and evaluate model
-            c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data, params, pca_params = pca_params)
+            c_index_metrics, c_scores, surv_tbl, params, model = cox_models.evaluate(data, params, pca_params = pca_params)
             # append to results
             results.append((repn, params["modeltype"], data.name , c_index_metrics[0], c_index_metrics[1], c_index_metrics[2] ))
      
@@ -111,22 +126,8 @@ def run(args):
             params = HyperParams.generate_default(model_type = model_type, data = data)
             pca_params = {"min_col": 17, "max_col": data.x.shape[1], "pca_n": 50 }
             # train and evaluate model
-            c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data, params, pca_params = pca_params)
+            c_index_metrics, c_scores, surv_tbl, params, model = cox_models.evaluate(data, params, pca_params = pca_params)
             # append to results
             results.append((repn, params["modeltype"], data.name , c_index_metrics[0], c_index_metrics[1], c_index_metrics[2] ))
     
-    for repn in range(1,4,1):   
-        for model_type in ["ridge_cph_lifelines_CF_PCA", "cphdnn_1l"]:
-            data = pca_only.clone()
-            # preprocess data 
-            var = data.x.var(0)
-            data.x = data.x[data.x.columns[np.where( var > np.median(var))]]
-            # splitting
-            data.split_train_test(HyperParams.nfolds)
-            # generate model parameters 
-            params = HyperParams.generate_default(model_type = model_type, data = data)
-            pca_params = {"min_col": 0, "max_col": data.x.shape[1], "pca_n": 50 }
-            # train and evaluate model
-            c_index_metrics, c_scores, surv_tbl, params= cox_models.evaluate(data, params, pca_params = pca_params)
-            # append to results
-            results.append((repn, params["modeltype"], data.name , c_index_metrics[0], c_index_metrics[1], c_index_metrics[2] ))
+    

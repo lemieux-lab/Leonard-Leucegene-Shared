@@ -91,7 +91,7 @@ def compute_aggregated_bootstrapped_c_index(scores, data, n=10000):
     nsamples=data.shape[0]
     for i in tqdm(range (n), desc = f"bootstraping {n}..."):
         idx = np.random.choice(np.arange(nsamples),nsamples, True)
-        c_ind_vld = compute_c_index(scores[idx], data.iloc[idx,:], method = "own")
+        c_ind_vld = compute_c_index(scores[idx], data.iloc[idx,:], method = "lifelines")
         c_scores.append(c_ind_vld)
     c_scores = np.sort(c_scores)
     c_ind_med = np.median(c_scores)
