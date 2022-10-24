@@ -50,7 +50,7 @@ def plot_c_surv(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
     input_size = HyperParams["input_size"]
     c_ind = HyperParams["c_index_metrics"]
     input_type = HyperParams["input_type"]
-    surv_outpath = os.path.join(surv_curves_outdir, f"5_{input_type}_{model_type}_{cohort}_{input_size}")
+    surv_outpath = os.path.join(surv_curves_outdir, f"{input_type}_{model_type}_{cohort}_{input_size}")
     plt.title(f"Survival curves - model_type: {model_type}")
     ax.set_xlabel(f'''timeline 
     dataset: {cohort}, Input type: {input_type}
@@ -126,7 +126,7 @@ def plot_c_surv_3_groups(pred_data, HyperParams, surv_curves_outdir, group_weigh
     input_size = HyperParams["input_size"]
     c_ind = HyperParams["c_index_metrics"]
     input_type = HyperParams["input_type"]
-    surv_outpath = os.path.join(surv_curves_outdir, f"7_{input_type}_{cohort}_{input_size}")
+    surv_outpath = os.path.join(surv_curves_outdir, f"{input_type}_{cohort}_{input_size}")
     plt.title(f"Survival curves - model_type: {model_type}")
     ax.set_xlabel(f'''timeline 
     dataset: {cohort}, input_dim: {input_size} 

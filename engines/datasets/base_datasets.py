@@ -211,7 +211,8 @@ class SurvivalGEDataset():
 
         elif cohort == "lgn_intermediate":
             DS = Leucegene_Dataset(self.gene_repertoire)
-            DS.load()
+            DS.load(cytogenetic_groups= ["intermediate cytogenetics"])
+            DS.COHORT = "lgn_pronostic_intermediate"
             self._set_data(DS, rm_unexpr=True)
         return self.data
     
@@ -226,7 +227,7 @@ class SurvivalGEDataset():
                 bin_labels = pd.DataFrame(bin, columns = [f"{feature}_{c}" for c in lb.classes_], index = self.CF.index)
             else: bin_labels = pd.DataFrame(bin, columns = lb.classes_, index = self.CF.index)
             ret_df = ret_df.merge(bin_labels,  left_index = True, right_index = True)
-        columns = ['Age_at_diagnosis', 'Complex (3 and more chromosomal abnormalities)',
+        columns = np.intersect1d(['Age_at_diagnosis', 'Complex (3 and more chromosomal abnormalities)',
        'EVI1 rearrangements (+EVI1 FISH positive) (Irrespective of additional cytogenetic abnormalities)',
        'Hyperdiploid numerical abnormalities only',
        'Intermediate abnormal karyotype (except isolated trisomy/tetrasomy 8)',
@@ -238,27 +239,19 @@ class SurvivalGEDataset():
        'inv(16)(p13.1q22)/t(16;16)(p13.1;q22)/CBFB-MYH11 (Irrespective of additional cytogenetic abnormalities)',
        't(6;9)(p23;q34) (Irrespective of additional cytogenetic abnormalities)',
        't(8;21)(q22;q22)/RUNX1-RUNX1T1 (Irrespective of additional cytogenetic abnormalities)',
-       'FLT3-ITD mutation_1', 'IDH1-R132 mutation_1.0', 'NPM1 mutation_1.0','Sex_F']
+       'FLT3-ITD mutation_1', 'IDH1-R132 mutation_1.0', 'NPM1 mutation_1.0','Sex_F'], ret_df.columns)
+        
         self.CF_bin = ret_df[columns]
-        self.CF_bin.columns = ['Age_gt_60', 'Complex (3 and more chromosomal abnormalities)',
-       'EVI1 rearrangements (+EVI1 FISH positive) (Irrespective of additional cytogenetic abnormalities)',
-       'Hyperdiploid numerical abnormalities only',
-       'Intermediate abnormal karyotype (except isolated trisomy/tetrasomy 8)',
-       'MLL translocations (+MLL FISH positive) (Irrespective of additional cytogenetic abnormalities)',
-       'Monosomy 5/ 5q-/Monosomy 7/ 7q- (less than 3 chromosomal abnormalities)',
-       'Monosomy17/del17p (less than 3 chromosomal abnormalities)',
-       'NUP98-NSD1(normal karyotype)', 'Normal karyotype',
-       'Trisomy/tetrasomy 8 (isolated)',
-       'inv(16)(p13.1q22)/t(16;16)(p13.1;q22)/CBFB-MYH11 (Irrespective of additional cytogenetic abnormalities)',
-       't(6;9)(p23;q34) (Irrespective of additional cytogenetic abnormalities)',
-       't(8;21)(q22;q22)/RUNX1-RUNX1T1 (Irrespective of additional cytogenetic abnormalities)',
-       'FLT3-ITD mutation', 'IDH1-R132 mutation', 'NPM1 mutation','Sex_F']
+        self.CF_bin.columns = [c.replace("_1.0", "").replace("_1", "") for c in columns]
 
     def _set_data(self, DS, rm_unexpr = False):
          
         self._GE_TPM = DS._GE_TPM
         self.CF = DS._CLIN_INFO
-        self._binarize_clin_infos() 
+        if DS.COHORT == "tcga_target_aml":
+            self.CF_bin = None
+        else: 
+            self._binarize_clin_infos() 
         self.COHORT = DS.COHORT
         # select cds
         ### select based on repertoire
@@ -278,6 +271,7 @@ class SurvivalGEDataset():
         lsc17_data = Data(self._get_LSC17(), self.CF ,self.gene_repertoire, name = f"{self.COHORT}_LSC17", learning = self.learning )
         # set the data dict
         self.data = {"cohort": self.COHORT,"CDS": cds_data, "TRSC": trsc_data, "LSC17": lsc17_data, "CF": self.CF, "CF_bin": self.CF_bin} #, "LSC17":lsc17_data, "FE": FE_data}
+
     
     def _get_LSC17(self):
         if 0: # f"LSC17_{self.COHORT}_expressions.csv" in os.listdir("Data/SIGNATURES"):
@@ -314,7 +308,7 @@ class TCGA_Dataset():
         self.NS = self._CLIN_INFO.shape[0]   
 
     def _init_CF_files(self):
-        if 0 : #"TCGA_CF.assembled.csv" in os.listdir(self.tcga_data_path):
+        if "TCGA_CF.assembled.csv" in os.listdir(self.tcga_data_path):
             self._CLIN_INFO_RAW = pd.read_csv(os.path.join(self.tcga_data_path, "TCGA_CF.assembled.csv"), index_col = 0)
         else: 
             ## FETCH CLINICAL DATA ##
@@ -344,7 +338,7 @@ class TCGA_Dataset():
             info_data['sequencer'] = 'Hi-seq'
             info_data['Overall Survival Time in Days'] = info_data['Overall Survival Time in Days'].astype(float)
             # select proper columns
-            self._CLIN_INFO_RAW = info_data[['TARGET USI', 'submitter_id', 'filepath','dataset', 'sequencer', 'Gender', 'Risk group', 'FLT3/ITD positive?', 'NPM mutation','Induction_Type', 'Overall Survival Time in Days', 'Vital Status']]
+            self._CLIN_INFO_RAW = info_data[['TARGET USI', 'submitter_id', 'filepath','dataset', 'sequencer', 'gender', 'age_at_diagnosis_in_years' , 'cytogenetic_risk', 'FLT3-ITD', 'NPM1', 'Induction_Type', 'Overall Survival Time in Days', 'vital_status']]
             print("OUT Merged TCGA and TARGET clinical features")
             # remove duplicates 
             counts = self._CLIN_INFO_RAW.groupby("TARGET USI").count()
@@ -353,21 +347,24 @@ class TCGA_Dataset():
             self._CLIN_INFO_RAW.to_csv(os.path.join(self.tcga_data_path, "TCGA_CF.assembled.csv"))
         
         # preprocess clinical info file
-        self._CLIN_INFO_RAW.columns = ['TARGET USI', 'submitter_id', 'filepath','dataset', 'sequencer', 'Gender', 'Cytogenetic risk', 'FLT3/ITD positive?', 'NPM mutation','Induction_Type', 'Overall_Survival_Time_days', 'Overall_Survival_Status']
+        self._CLIN_INFO_RAW.columns = ['sampleID', 'submitter_id', 'filepath','dataset', 'sequencer', 'gender', 'age_at_diagnosis_years' , 'cytogenetic_risk', 'flt3_itd', 'npm1', 'induction_type', 'Overall_Survival_Time_days','Overall_Survival_Status']
         # format censorship state 
-        self._CLIN_INFO_RAW["Overall_Survival_Status"] = (self._CLIN_INFO_RAW["Overall_Survival_Status"] == "Dead").astype(int)
+        self._CLIN_INFO_RAW['Overall_Survival_Status'] = (self._CLIN_INFO_RAW['Overall_Survival_Status'] == "Dead").astype(int)
         # remove samples marked as "dead" without recorded time (8 samples)
-        self._CLIN_INFO = self._CLIN_INFO_RAW[(self._CLIN_INFO_RAW["Overall_Survival_Time_days"] == self._CLIN_INFO_RAW["Overall_Survival_Time_days"])]
-        
+        self._CLIN_INFO = self._CLIN_INFO_RAW[(self._CLIN_INFO_RAW['Overall_Survival_Time_days'] == self._CLIN_INFO_RAW['Overall_Survival_Time_days'])]
 
-    def load(self):
+
+    def load(self, cytogenetic_groups = ["adverse cytogenetics", "intermediate cytogenetics", "favorable cytogenetics"]):
+ 
         # retriteves tpm transformed expression data 
         self._compute_tpm()
         # make sure all the ids in CF file and GE files are the same!
-        common_ids = np.intersect1d(self._GE_TPM.columns, self._CLIN_INFO["TARGET USI"])
+        common_ids = np.intersect1d(self._GE_TPM.columns, self._CLIN_INFO["sampleID"])
+        # perform cyto group filtration 
+        common_ids = np.intersect1d(common_ids, np.where(self._CLIN_INFO["Cytogenetic risk"].isin(cytogenetic_groups)))
         self._GE_TPM = self._GE_TPM[common_ids]
-        self._CLIN_INFO = self._CLIN_INFO[self._CLIN_INFO["TARGET USI"].isin(common_ids)]
-        self._CLIN_INFO.index = self._CLIN_INFO["TARGET USI"]
+        self._CLIN_INFO = self._CLIN_INFO[self._CLIN_INFO["sampleID"].isin(common_ids)]
+        self._CLIN_INFO.index = self._CLIN_INFO["sampleID"]
         self._CLIN_INFO = self._CLIN_INFO.loc[self._GE_TPM.columns]
     
     def _compute_tpm(self):
@@ -464,9 +461,10 @@ class TCGA_Dataset():
         return clinical_data
 
     def _merge_tcga_target_clinical_features(self, CD_tcga_profile, CD_target_profile):
-        target_features = ['TARGET USI', 'Gender', 'FLT3/ITD positive?', 'NPM mutation', 'Overall Survival Time in Days', 'Vital Status', 'Risk group']
+        target_features = ['TARGET USI', 'Gender', 'Age at Diagnosis in Days' ,'FLT3/ITD positive?', 'NPM mutation', 'Overall Survival Time in Days', 'Vital Status', 'Risk group']
         target = CD_target_profile[target_features]
-        tcga_features = ['bcr_patient_barcode','gender', 'FLT3 Mutation Positive', 'NPMc Positive', 'Overall Survival Time in Days' , 'vital_status', 'acute_myeloid_leukemia_calgb_cytogenetics_risk_category']
+        target['Age at Diagnosis in Days'] = np.array(target['Age at Diagnosis in Days'] / 365, dtype = int)
+        tcga_features = ['bcr_patient_barcode','gender', 'age_at_initial_pathologic_diagnosis' ,'FLT3 Mutation Positive', 'NPMc Positive', 'Overall Survival Time in Days' , 'vital_status', 'acute_myeloid_leukemia_calgb_cytogenetics_risk_category']
         CD_tcga_profile["Overall Survival Time in Days"] = CD_tcga_profile["days_to_death"] 
         censored = CD_tcga_profile["days_to_death"] != CD_tcga_profile["days_to_death"]
         CD_tcga_profile["Overall Survival Time in Days"][censored] = CD_tcga_profile["days_to_last_followup"][censored]
@@ -476,7 +474,7 @@ class TCGA_Dataset():
         target.Gender = target.Gender.str.upper()
         target['FLT3/ITD positive?'] = np.asarray(target['FLT3/ITD positive?'] == 'Yes', dtype = int)
         target['NPM mutation'] = np.asarray(target['NPM mutation'] == 'Yes', dtype = int)
-        tcga_target_clinical_features = pd.DataFrame(np.concatenate((CD_tcga_profile, target)), columns = target_features)
+        tcga_target_clinical_features = pd.DataFrame(np.concatenate((CD_tcga_profile, target)), columns = ["TARGET USI", "gender", "age_at_diagnosis_in_years", "FLT3-ITD","NPM1", 'Overall Survival Time in Days' , 'vital_status', "Cytogenetic risk"])
         # add an unknown induction type column
         tcga_target_clinical_features['Induction_Type'] = 'unknown'
         # rename columns 
@@ -539,9 +537,16 @@ class Leucegene_Dataset():
             CF_file = CF_file[np.setdiff1d(CF_file.columns, ["sampleID"])]
             CF_file.to_csv(f"Data/{cohort}_CF")
 
-    def load(self):
+    def load(self,  cytogenetic_groups = ["adverse cytogenetics", "intermediate cytogenetics", "favorable cytogenetics"]):
         self._compute_tpm()
-
+        # make sure all the ids in CF file and GE files are the same!
+        common_ids = np.intersect1d(self._GE_TPM.columns, self._CLIN_INFO.index)
+        # perform cyto group filtration 
+        common_ids = np.intersect1d(common_ids, self._CLIN_INFO.index[self._CLIN_INFO["Cytogenetic risk"].isin(cytogenetic_groups)] )
+        self._GE_TPM = self._GE_TPM[common_ids]
+        self._CLIN_INFO = self._CLIN_INFO[self._CLIN_INFO.index.isin(common_ids)]
+        self._CLIN_INFO = self._CLIN_INFO.loc[self._GE_TPM.columns]
+        
     def _compute_tpm(self):
         outfile = f"{self.COHORT}_GE_TRSC_TPM.csv"
         if outfile in os.listdir("Data") :
