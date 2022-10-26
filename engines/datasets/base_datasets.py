@@ -347,23 +347,24 @@ class TCGA_Dataset():
             self._CLIN_INFO_RAW.to_csv(os.path.join(self.tcga_data_path, "TCGA_CF.assembled.csv"))
         
         # preprocess clinical info file
-        self._CLIN_INFO_RAW.columns = ['sampleID', 'submitter_id', 'filepath','dataset', 'sequencer', 'gender', 'age_at_diagnosis_years' , 'cytogenetic_risk', 'flt3_itd', 'npm1', 'induction_type', 'Overall_Survival_Time_days','Overall_Survival_Status']
+        self._CLIN_INFO_RAW.columns = ['sampleID', 'submitter_id', 'filepath','dataset', 'sequencer', 'gender', 'age_at_diagnosis_years' , 'Cytogenetic risk', 'flt3_itd', 'npm1', 'induction_type', 'Overall_Survival_Time_days','Overall_Survival_Status']
         # format censorship state 
         self._CLIN_INFO_RAW['Overall_Survival_Status'] = (self._CLIN_INFO_RAW['Overall_Survival_Status'] == "Dead").astype(int)
         # remove samples marked as "dead" without recorded time (8 samples)
         self._CLIN_INFO = self._CLIN_INFO_RAW[(self._CLIN_INFO_RAW['Overall_Survival_Time_days'] == self._CLIN_INFO_RAW['Overall_Survival_Time_days'])]
 
 
-    def load(self, cytogenetic_groups = ["adverse cytogenetics", "intermediate cytogenetics", "favorable cytogenetics"]):
- 
+    def load(self, cytogenetic_groups = ["Low", "Standard", "Favorable"]):
+        # unstable
         # retriteves tpm transformed expression data 
         self._compute_tpm()
         # make sure all the ids in CF file and GE files are the same!
         common_ids = np.intersect1d(self._GE_TPM.columns, self._CLIN_INFO["sampleID"])
+        self._CLIN_INFO["Cytogenetic risk"] = self._CLIN_INFO["Cytogenetic risk"].replace("Intermediate/Normal","Standard").replace("Poor", "Low").astype(str)
         # perform cyto group filtration 
-        common_ids = np.intersect1d(common_ids, np.where(self._CLIN_INFO["Cytogenetic risk"].isin(cytogenetic_groups)))
-        self._GE_TPM = self._GE_TPM[common_ids]
-        self._CLIN_INFO = self._CLIN_INFO[self._CLIN_INFO["sampleID"].isin(common_ids)]
+        filtered = np.intersect1d(common_ids, self._CLIN_INFO["sampleID"][self._CLIN_INFO["Cytogenetic risk"].isin(cytogenetic_groups)])
+        self._GE_TPM = self._GE_TPM[filtered]
+        self._CLIN_INFO = self._CLIN_INFO[self._CLIN_INFO["sampleID"].isin(filtered)]
         self._CLIN_INFO.index = self._CLIN_INFO["sampleID"]
         self._CLIN_INFO = self._CLIN_INFO.loc[self._GE_TPM.columns]
     
@@ -543,6 +544,7 @@ class Leucegene_Dataset():
         common_ids = np.intersect1d(self._GE_TPM.columns, self._CLIN_INFO.index)
         # perform cyto group filtration 
         common_ids = np.intersect1d(common_ids, self._CLIN_INFO.index[self._CLIN_INFO["Cytogenetic risk"].isin(cytogenetic_groups)] )
+
         self._GE_TPM = self._GE_TPM[common_ids]
         self._CLIN_INFO = self._CLIN_INFO[self._CLIN_INFO.index.isin(common_ids)]
         self._CLIN_INFO = self._CLIN_INFO.loc[self._GE_TPM.columns]
