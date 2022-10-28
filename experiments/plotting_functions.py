@@ -50,7 +50,7 @@ def plot_c_surv(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
     input_size = HyperParams["input_size"]
     c_ind = HyperParams["c_index_metrics"]
     input_type = HyperParams["input_type"]
-    surv_outpath = os.path.join(surv_curves_outdir, f"{input_type}_{model_type}_{cohort}_{input_size}")
+    surv_outpath = os.path.join(surv_curves_outdir, f"c_surv_{model_type}_{cohort}_{input_size}")
     plt.title(f"Survival curves - model_type: {model_type}")
     ax.set_xlabel(f'''timeline 
     dataset: {cohort}, Input type: {input_type}
@@ -93,7 +93,10 @@ def plot_variance(pca_data, basepath):
     fig, ax = plt.subplots()
     return ax, basepath
 
-def plot_c_surv_3_groups(pred_data, HyperParams, surv_curves_outdir, group_weights = [0.5, 0.5] ):
+def plot_c_surv_3_groups(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
+    c_scores = cox_output[1]
+    pred_data = cox_output[2]
+    HyperParams = cox_output[3]
     plt.figure()
     kmf = KaplanMeierFitter()
     sorted_scores = np.sort(pred_data["pred_risk"])
@@ -126,7 +129,7 @@ def plot_c_surv_3_groups(pred_data, HyperParams, surv_curves_outdir, group_weigh
     input_size = HyperParams["input_size"]
     c_ind = HyperParams["c_index_metrics"]
     input_type = HyperParams["input_type"]
-    surv_outpath = os.path.join(surv_curves_outdir, f"{input_type}_{cohort}_{input_size}")
+    surv_outpath = os.path.join(surv_curves_outdir, f"c_surv_{cohort.replace(' ','').replace('.', '')}_{model_type}_{input_size}")
     plt.title(f"Survival curves - model_type: {model_type}")
     ax.set_xlabel(f'''timeline 
     dataset: {cohort}, input_dim: {input_size} 

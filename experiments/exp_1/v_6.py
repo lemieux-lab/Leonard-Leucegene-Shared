@@ -12,63 +12,118 @@ import pdb
 def run(args):
 
     assert_mkdir(args.OUTPATH)
-    lgn_pronostic = SurvivalGEDataset().get_data("lgn_pronostic")
-    LGN_CDS = lgn_pronostic["CDS"]
-    LGN_LSC17 = lgn_pronostic["LSC17"]
-    LGN_CF = lgn_pronostic["CF_bin"]
     
-    lgn_int = SurvivalGEDataset().get_data("lgn_intermediate")
+    SGE1 = SurvivalGEDataset()
+    lgn_pronostic = SGE1.get_data("lgn_pronostic")
+    LGN_PCA17 = SGE1.new(None, "PCA")
+    LGN_LSC17 = SGE1.new(None, "LSC17")
+    
 
-    LGN_INT_CDS = lgn_int["CDS"]
-    LGN_INT_LSC17 = lgn_int["LSC17"]
-    tcga_aml = SurvivalGEDataset().get_data("tcga_target_aml")
-    TCGA_CDS = tcga_aml["CDS"]
-    TCGA_LSC17 = tcga_aml["LSC17"]
+    SGE2 = SurvivalGEDataset()
+    SGE2.get_data("lgn_pronostic_intermediate")
+    LGN_INT_PCA17 = SGE2.new(None, "PCA")
+    LGN_INT_LSC17 = SGE2.new(None, "LSC17")
+
+
+    SGE3 = SurvivalGEDataset()
+    tcga = SGE3.get_data("tcga_target_aml")
+    TCGA_PCA17 = SGE3.new(None, "PCA")
+    TCGA_LSC17 = SGE3.new(None, "LSC17")
     lgn_cyt_levels = [{"intermediate cytogenetics":1, "adverse cytogenetics": 2, "favorable cytogenetics":0 }[level] for level in lgn_pronostic["CF"]["Cytogenetic risk"]]
-    tcga_cyt_levels = [{"Standard":1, "Low": 2, "Favorable":0 }[level] for level in tcga_aml["CF"]["Cytogenetic risk"]]
+    tcga_cyt_levels = [{"Standard":1, "Low": 2, "Favorable":0 }[level] for level in tcga["CF"]["Cytogenetic risk"]]
+    
+    SGE = SurvivalGEDataset()
+    SGE.get_data("lgn_pronostic")
+    mutations = ["NPM1 mutation", "FLT3-ITD mutation", "IDH1-R132 mutation"]
+    age_sex = ["Sex_F", "Age_gt_60"] # Age is bugged
+    cytogenetics = ['MLL translocations (+MLL FISH positive) (Irrespective of additional cytogenetic abnormalities)',
+        'Intermediate abnormal karyotype (except isolated trisomy/tetrasomy 8)',
+        'Normal karyotype',
+        'Complex (3 and more chromosomal abnormalities)',
+        'Trisomy/tetrasomy 8 (isolated)',
+        'Monosomy 5/ 5q-/Monosomy 7/ 7q- (less than 3 chromosomal abnormalities)',
+        'NUP98-NSD1(normal karyotype)',
+        't(8;21)(q22;q22)/RUNX1-RUNX1T1 (Irrespective of additional cytogenetic abnormalities)',
+        'inv(16)(p13.1q22)/t(16;16)(p13.1;q22)/CBFB-MYH11 (Irrespective of additional cytogenetic abnormalities)',
+        'EVI1 rearrangements (+EVI1 FISH positive) (Irrespective of additional cytogenetic abnormalities)',
+        't(6;9)(p23;q34) (Irrespective of additional cytogenetic abnormalities)',
+        'Monosomy17/del17p (less than 3 chromosomal abnormalities)',
+        'Hyperdiploid numerical abnormalities only', 'adverse cytogenetics', 'favorable cytogenetics',
+       'intermediate cytogenetics' ]
 
+    clinical_features = np.concatenate([mutations, cytogenetics, age_sex])
+    LGN_CF = SGE1.new(clinical_features, gene_expressions=None)
+    
+    LGN_CF_LSC17 = SGE.new(clinical_features, gene_expressions="LSC17")
+    LGN_CF_PCA17 = SGE.new(clinical_features, gene_expressions="PCA")
 
+    # filter on variance
+    var = LGN_CF.x.var(0)
+    LGN_CF.x = LGN_CF.x[LGN_CF.x.columns[np.where( var > 0.01)]]
+    var = LGN_CF_LSC17.x.var(0)
+    LGN_CF_LSC17.x = LGN_CF_LSC17.x[LGN_CF_LSC17.x.columns[np.where( var > 0.01)]]
+    var = LGN_CF_PCA17.x.var(0)
+    LGN_CF_PCA17.x = LGN_CF_PCA17.x[LGN_CF_PCA17.x.columns[np.where( var > 0.01)]]
 
+    LGN_CF.split_train_test(args.NFOLDS)
     LGN_LSC17.split_train_test(args.NFOLDS)
-    LGN_CDS.split_train_test(args.NFOLDS)
+    LGN_PCA17.split_train_test(args.NFOLDS)
+    LGN_CF_LSC17.split_train_test(args.NFOLDS)
+    LGN_CF_PCA17.split_train_test(args.NFOLDS)
+    
     LGN_INT_LSC17.split_train_test(args.NFOLDS)
-    LGN_INT_CDS.split_train_test(args.NFOLDS)
-    TCGA_LSC17.split_train_test(args.NFOLDS)
-    TCGA_CDS.split_train_test(args.NFOLDS)
-    
-    HyperParams = HP_dict(args.WEIGHT_DECAY, args.NEPOCHS, args.bootstr_n, args.NFOLDS)
-    LGN_LSC17_params = HyperParams.generate_default("ridge_cph_lifelines_LSC17", LGN_LSC17)        
-    LGN_PCA17_params = HyperParams.generate_default("ridge_cph_lifelines_PCA", LGN_CDS) 
-    LGN_PCA_PARAMS = {"min_col": 0, "max_col": LGN_CDS.x.shape[1], "pca_n": 17}       
-    LGN_INT_LSC17_params = HyperParams.generate_default("ridge_cph_lifelines_LSC17", LGN_INT_LSC17)        
-    LGN_INT_PCA17_params = HyperParams.generate_default("ridge_cph_lifelines_PCA", LGN_INT_CDS)        
-    LGN_INT_PCA_PARAMS = {"min_col": 0, "max_col": LGN_INT_CDS.x.shape[1], "pca_n": 17}   
-    TCGA_LSC17_params = HyperParams.generate_default("ridge_cph_lifelines_LSC17", TCGA_LSC17)        
-    TCGA_PCA17_params = HyperParams.generate_default("ridge_cph_lifelines_PCA", TCGA_CDS)   
-    TCGA_PCA_PARAMS = {"min_col": 0, "max_col": TCGA_CDS.x.shape[1], "pca_n": 17}   
-    
-    # NO CF  
-    
+    LGN_INT_PCA17.split_train_test(args.NFOLDS)
 
-    # WITH CF
-    plot_c_surv_3_groups(cox_models.evaluate(TCGA_LSC17, TCGA_LSC17_params, pca_params = TCGA_PCA_PARAMS)[2], TCGA_LSC17_params, args.OUTPATH, group_weights = Counter(tcga_cyt_levels))
-    plot_c_surv_3_groups(cox_models.evaluate(TCGA_CDS, TCGA_PCA17_params, pca_params = TCGA_PCA_PARAMS)[2], TCGA_PCA17_params,args.OUTPATH, group_weights = Counter(tcga_cyt_levels))
+    TCGA_LSC17.split_train_test(args.NFOLDS)
+    TCGA_PCA17.split_train_test(args.NFOLDS)
+
+
+
+    HyperParams = HP_dict(args.WEIGHT_DECAY, args.NEPOCHS, args.bootstr_n, args.NFOLDS)
+    LGN_LSC17_params = HyperParams.generate_default("ridge_cph_lifelines_LSC17", LGN_LSC17)  
+    LGN_CF_LSC17_params = HyperParams.generate_default("ridge_cph_lifelines_CF_LSC17", LGN_CF_LSC17)      
+    LGN_PCA17_params = HyperParams.generate_default("ridge_cph_lifelines_PCA", LGN_PCA17) 
+    LGN_PCA_params = {"min_col": 0, "max_col": LGN_PCA17.x.shape[1], "pca_n": 17}       
+    LGN_CF_PCA17_params = HyperParams.generate_default("ridge_cph_lifelines_CF_PCA", LGN_CF_PCA17) 
+
+    LGN_INT_LSC17_params = HyperParams.generate_default("ridge_cph_lifelines_LSC17", LGN_INT_LSC17)        
+    LGN_INT_PCA17_params = HyperParams.generate_default("ridge_cph_lifelines_PCA", LGN_INT_PCA17)        
+    LGN_INT_PCA_PARAMS = {"min_col": 0, "max_col": LGN_INT_PCA17.x.shape[1], "pca_n": 17}   
+    TCGA_LSC17_params = HyperParams.generate_default("ridge_cph_lifelines_LSC17", TCGA_LSC17)        
+    TCGA_PCA17_params = HyperParams.generate_default("ridge_cph_lifelines_PCA", TCGA_PCA17)   
+    TCGA_PCA_params = {"min_col": 0, "max_col": TCGA_PCA17.x.shape[1], "pca_n": 17}   
+    LGN_CYT_params = HyperParams.generate_default("cytogenetic_risk", LGN_CF)
+    LGN_CF_params = HyperParams.generate_default("ridge_cph_lifelines_CF", LGN_CF)
+
+    # CYT ONLY
+    cyt = pd.DataFrame(dict([("t", lgn_pronostic["CF"]["Overall_Survival_Time_days"]),("e",  lgn_pronostic["CF"]["Overall_Survival_Status"]), ("pred_risk", lgn_cyt_levels)]))
+    cyt_c_scores, cyt_metrics = compute_cyto_risk_c_index(cyt["pred_risk"], cyt, gamma = 0.001, n = HyperParams.bootstr_n)
+    LGN_CYT_params["c_index_metrics"] = cyt_metrics
     
-    # OK 
-    plot_c_surv_3_groups(cox_models.evaluate(LGN_LSC17, LGN_LSC17_params)[2],  LGN_LSC17_params, args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
-    plot_c_surv_3_groups(cox_models.evaluate(LGN_CDS, LGN_PCA17_params, pca_params = LGN_PCA_PARAMS)[2],LGN_PCA17_params, args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
+    plot_c_surv_3_groups([0,0, cyt, LGN_CYT_params], args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
+    
+    # CF 
+    plot_c_surv_3_groups(cox_models.evaluate(LGN_CF, LGN_CF_params), args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
+      
+
+    # GE WITH CF 
+    plot_c_surv_3_groups(cox_models.evaluate(LGN_CF_LSC17, LGN_CF_LSC17_params), args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
+    plot_c_surv_3_groups(cox_models.evaluate(LGN_CF_PCA17, LGN_CF_PCA17_params, pca_params = {"min_col": 34, "max_col": LGN_CF_PCA17.x.shape[1], "pca_n": 17} ), args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
+
+    # GE NO CF  
+    plot_c_surv_3_groups(cox_models.evaluate(TCGA_LSC17, TCGA_LSC17_params), args.OUTPATH, group_weights = Counter(tcga_cyt_levels))
+    plot_c_surv_3_groups(cox_models.evaluate(TCGA_PCA17, TCGA_PCA17_params, pca_params = TCGA_PCA_params), args.OUTPATH, group_weights = Counter(tcga_cyt_levels))
+    plot_c_surv_3_groups(cox_models.evaluate(LGN_LSC17, LGN_LSC17_params), args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
+    plot_c_surv_3_groups(cox_models.evaluate(LGN_PCA17, LGN_PCA17_params, pca_params = LGN_PCA_params), args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
     plot_c_surv(cox_models.evaluate(LGN_INT_LSC17, LGN_INT_LSC17_params), args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
-    plot_c_surv(cox_models.evaluate(LGN_INT_CDS, LGN_INT_PCA17_params, pca_params = LGN_INT_PCA_PARAMS), args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
+    plot_c_surv(cox_models.evaluate(LGN_INT_PCA17, LGN_INT_PCA17_params, pca_params = LGN_INT_PCA_PARAMS), args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
     
     
-    pdb.set_trace()    
     
-    plot_c_surv_3_groups(cox_models.evaluate(LGN_CF_LSC17, LGN_LSC17_params)[2],  LGN_LSC17_params, args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
-    plot_c_surv_3_groups(cox_models.evaluate(LGN_CF_CDS, LGN_PCA17_params, pca_params = LGN_PCA_PARAMS)[2],LGN_PCA17_params, args.OUTPATH, group_weights = Counter(lgn_cyt_levels))
     
     # TO DO
     # plot_c_surv(cox_models.evaluate(LGN_INT_LSC17, LGN_INT_LSC17_params), args.OUTPATH, group_weights = Counter(cyt_levels))
-    # plot_c_surv(cox_models.evaluate(LGN_INT_CDS, LGN_INT_PCA17_params, pca_params = LGN_INT_PCA_PARAMS), args.OUTPATH, group_weights = Counter(cyt_levels))
+    # plot_c_surv(cox_models.evaluate(LGN_INT_PCA17, LGN_INT_PCA17_params, pca_params = LGN_INT_PCA_PARAMS), args.OUTPATH, group_weights = Counter(cyt_levels))
     
 
     pdb.set_trace()

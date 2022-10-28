@@ -343,7 +343,7 @@ class HP_dict:
         params["device"] = None
         params["lr"] = None
         params["linear"]  = False
-        params["modeltype"] = "cytogenetic risk"
+        params["modeltype"] = "cytogenetic_risk"
         params["bootstrap_n"] = self.bootstr_n
         return params 
 

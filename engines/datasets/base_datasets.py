@@ -164,25 +164,25 @@ class SurvivalGEDataset():
                 ge_features = self.data["CDS"]
                 train_features = ge_features.x
             else: return None
-            data_name = gene_expressions
-        else: 
+            data_name = self.COHORT + "_" + gene_expressions
+        else:
             # manage clinical factors
             clinical_features = self.data["CF_bin"][clinical_factors]
             # manage gene expressions
-            if "LSC17+PCA" in gene_expressions:
+            if gene_expressions and  "LSC17+PCA" in gene_expressions:
                 LSC17_features = self.data["LSC17"].x.merge(self.data["CDS"].x, left_index = True, right_index = True)
                 train_features = clinical_features.merge(LSC17_features, left_index = True, right_index = True)
 
-            elif "LSC17" in gene_expressions :
+            elif gene_expressions and "LSC17" in gene_expressions :
                 LSC17_features = self.data["LSC17"]
                 train_features = clinical_features.merge(LSC17_features.x, left_index = True, right_index = True)
-            elif "PCA" in gene_expressions:
+            elif gene_expressions and  "PCA" in gene_expressions:
                 ge_features = self.data["CDS"]
                 train_features = clinical_features.merge(ge_features.x, left_index = True, right_index = True) 
             else : train_features = clinical_features 
             # manage target features
             
-            data_name = "clin. factors + "+ gene_expressions if gene_expressions is not None else "clin. factors" 
+            data_name = self.COHORT + "_clin_factors_"+ gene_expressions if gene_expressions is not None else "clin_factors" 
         target_features = self.data["CDS"].y   
         data = Data(x = train_features, y = target_features, gene_info=self.gene_repertoire, name= data_name)
         if (data.y.index != data.x.index).sum() > 0: raise(Exception, 'error: unmatch in index')
@@ -209,16 +209,17 @@ class SurvivalGEDataset():
             DS.load()
             self._set_data(DS, rm_unexpr=True)
 
-        elif cohort == "lgn_intermediate":
+        elif cohort == "lgn_pronostic_intermediate":
             DS = Leucegene_Dataset(self.gene_repertoire)
             DS.load(cytogenetic_groups= ["intermediate cytogenetics"])
-            DS.COHORT = "lgn_pronostic_intermediate"
+            DS.COHORT = cohort
             self._set_data(DS, rm_unexpr=True)
         return self.data
     
     def _binarize_clin_infos(self):
         ret_df = pd.DataFrame((self.CF["Age_at_diagnosis"] > 60).astype(int))
-        binarized_features = ['Cytogenetic group','FLT3-ITD mutation', 'IDH1-R132 mutation','NPM1 mutation', 'Sex']
+        ret_df.columns = ["Age_gt_60"]
+        binarized_features = ['Cytogenetic group','FLT3-ITD mutation', 'IDH1-R132 mutation','NPM1 mutation', 'Sex', 'Cytogenetic risk']
         for feature in binarized_features :
             lb = LabelBinarizer()
             bin = lb.fit_transform(self.CF[feature])
@@ -227,7 +228,7 @@ class SurvivalGEDataset():
                 bin_labels = pd.DataFrame(bin, columns = [f"{feature}_{c}" for c in lb.classes_], index = self.CF.index)
             else: bin_labels = pd.DataFrame(bin, columns = lb.classes_, index = self.CF.index)
             ret_df = ret_df.merge(bin_labels,  left_index = True, right_index = True)
-        columns = np.intersect1d(['Age_at_diagnosis', 'Complex (3 and more chromosomal abnormalities)',
+        columns = np.intersect1d(['Age_gt_60', 'Complex (3 and more chromosomal abnormalities)',
        'EVI1 rearrangements (+EVI1 FISH positive) (Irrespective of additional cytogenetic abnormalities)',
        'Hyperdiploid numerical abnormalities only',
        'Intermediate abnormal karyotype (except isolated trisomy/tetrasomy 8)',
@@ -239,8 +240,9 @@ class SurvivalGEDataset():
        'inv(16)(p13.1q22)/t(16;16)(p13.1;q22)/CBFB-MYH11 (Irrespective of additional cytogenetic abnormalities)',
        't(6;9)(p23;q34) (Irrespective of additional cytogenetic abnormalities)',
        't(8;21)(q22;q22)/RUNX1-RUNX1T1 (Irrespective of additional cytogenetic abnormalities)',
-       'FLT3-ITD mutation_1', 'IDH1-R132 mutation_1.0', 'NPM1 mutation_1.0','Sex_F'], ret_df.columns)
-        
+       'FLT3-ITD mutation_1', 'IDH1-R132 mutation_1.0', 'NPM1 mutation_1.0','Sex_F','adverse cytogenetics', 'favorable cytogenetics',
+       'intermediate cytogenetics'], ret_df.columns)
+        pdb
         self.CF_bin = ret_df[columns]
         self.CF_bin.columns = [c.replace("_1.0", "").replace("_1", "") for c in columns]
 
@@ -248,7 +250,7 @@ class SurvivalGEDataset():
          
         self._GE_TPM = DS._GE_TPM
         self.CF = DS._CLIN_INFO
-        if DS.COHORT == "tcga_target_aml":
+        if DS.COHORT in ["tcga_target_aml", "lgn_pronostic_intermediate"]:
             self.CF_bin = None
         else: 
             self._binarize_clin_infos() 
@@ -360,7 +362,7 @@ class TCGA_Dataset():
         self._compute_tpm()
         # make sure all the ids in CF file and GE files are the same!
         common_ids = np.intersect1d(self._GE_TPM.columns, self._CLIN_INFO["sampleID"])
-        self._CLIN_INFO["Cytogenetic risk"] = self._CLIN_INFO["Cytogenetic risk"].replace("Intermediate/Normal","Standard").replace("Poor", "Low").astype(str)
+        self._CLIN_INFO.loc[:,"Cytogenetic risk"] = self._CLIN_INFO["Cytogenetic risk"].replace("Intermediate/Normal","Standard").replace("Poor", "Low")
         # perform cyto group filtration 
         filtered = np.intersect1d(common_ids, self._CLIN_INFO["sampleID"][self._CLIN_INFO["Cytogenetic risk"].isin(cytogenetic_groups)])
         self._GE_TPM = self._GE_TPM[filtered]
