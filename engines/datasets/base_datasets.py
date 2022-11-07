@@ -220,6 +220,7 @@ class SurvivalGEDataset():
         ret_df = pd.DataFrame((self.CF["Age_at_diagnosis"] > 60).astype(int))
         ret_df.columns = ["Age_gt_60"]
         binarized_features = ['Cytogenetic group','FLT3-ITD mutation', 'IDH1-R132 mutation','NPM1 mutation', 'Sex', 'Cytogenetic risk']
+        self.CF["Cytogenetic group"] = ["cytg_" + s for s in self.CF["Cytogenetic group"]] 
         for feature in binarized_features :
             lb = LabelBinarizer()
             bin = lb.fit_transform(self.CF[feature])
@@ -228,23 +229,9 @@ class SurvivalGEDataset():
                 bin_labels = pd.DataFrame(bin, columns = [f"{feature}_{c}" for c in lb.classes_], index = self.CF.index)
             else: bin_labels = pd.DataFrame(bin, columns = lb.classes_, index = self.CF.index)
             ret_df = ret_df.merge(bin_labels,  left_index = True, right_index = True)
-        columns = np.intersect1d(['Age_gt_60', 'Complex (3 and more chromosomal abnormalities)',
-       'EVI1 rearrangements (+EVI1 FISH positive) (Irrespective of additional cytogenetic abnormalities)',
-       'Hyperdiploid numerical abnormalities only',
-       'Intermediate abnormal karyotype (except isolated trisomy/tetrasomy 8)',
-       'MLL translocations (+MLL FISH positive) (Irrespective of additional cytogenetic abnormalities)',
-       'Monosomy 5/ 5q-/Monosomy 7/ 7q- (less than 3 chromosomal abnormalities)',
-       'Monosomy17/del17p (less than 3 chromosomal abnormalities)',
-       'NUP98-NSD1(normal karyotype)', 'Normal karyotype',
-       'Trisomy/tetrasomy 8 (isolated)',
-       'inv(16)(p13.1q22)/t(16;16)(p13.1;q22)/CBFB-MYH11 (Irrespective of additional cytogenetic abnormalities)',
-       't(6;9)(p23;q34) (Irrespective of additional cytogenetic abnormalities)',
-       't(8;21)(q22;q22)/RUNX1-RUNX1T1 (Irrespective of additional cytogenetic abnormalities)',
-       'FLT3-ITD mutation_1', 'IDH1-R132 mutation_1.0', 'NPM1 mutation_1.0','Sex_F','adverse cytogenetics', 'favorable cytogenetics',
-       'intermediate cytogenetics'], ret_df.columns)
-        pdb
-        self.CF_bin = ret_df[columns]
-        self.CF_bin.columns = [c.replace("_1.0", "").replace("_1", "") for c in columns]
+
+        self.CF_bin = ret_df.drop(["FLT3-ITD mutation_0", "NPM1 mutation_0.0", "IDH1-R132 mutation_0.0", "Sex_M"], axis = 1)
+        self.CF_bin.columns = [c.replace("_1.0", "").replace("_1", "") for c in self.CF_bin.columns]
 
     def _set_data(self, DS, rm_unexpr = False):
          
