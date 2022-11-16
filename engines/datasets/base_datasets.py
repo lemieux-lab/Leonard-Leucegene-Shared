@@ -219,8 +219,8 @@ class SurvivalGEDataset():
     def _binarize_clin_infos(self):
         ret_df = pd.DataFrame((self.CF["Age_at_diagnosis"] > 60).astype(int))
         ret_df.columns = ["Age_gt_60"]
-        binarized_features = ['Cytogenetic group','FLT3-ITD mutation', 'IDH1-R132 mutation','NPM1 mutation', 'Sex', 'Cytogenetic risk']
-        self.CF["Cytogenetic group"] = ["cytg_" + s for s in self.CF["Cytogenetic group"]] 
+        binarized_features = ['WHO classification','FLT3-ITD mutation', 'IDH1-R132 mutation','NPM1 mutation', 'Sex', 'Cytogenetic risk']
+        # self.CF["Cytogenetic group"] = ["cytg_" + s for s in self.CF["Cytogenetic group"]] 
         for feature in binarized_features :
             lb = LabelBinarizer()
             bin = lb.fit_transform(self.CF[feature])

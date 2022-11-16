@@ -27,10 +27,11 @@ def plot_c_surv(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
     sorted_scores = np.sort(pred_data["pred_risk"])
     nsamples = len(sorted_scores)
     #groups = [["high risk", "low risk"][int(sample >= median_score)] for sample in pred_data["pred_risk"]]
-
+    hi_risk = pred_data["pred_risk"] >= median_score
+    lo_risk = pred_data["pred_risk"] < median_score
     nb_hi = int(float(nsamples / 2))
-    nc_hi = (pred_data["e"][pred_data["pred_risk"] >= median_score] == 0).sum()
-    nc_lo = (pred_data["e"][pred_data["pred_risk"] < median_score] == 0).sum()
+    nc_hi = (pred_data["e"][hi_risk] == 0).sum()
+    nc_lo = (pred_data["e"][lo_risk] == 0).sum()
     groups = []
     for score in pred_data["pred_risk"]:
         if score >= median_score: groups.append(f"high. risk (n:{nb_hi} c:{nc_hi})")
@@ -43,7 +44,11 @@ def plot_c_surv(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
     for i, (name, grouped_df) in enumerate( pred_data.groupby("group")):     
         kmf.fit(grouped_df["t"], grouped_df["e"], label=name)
         kmf.plot_survival_function(ax = ax, color = colors[i], show_censors =True, censor_styles = {"ms": 6, "marker": "x"})
-
+    
+    # hi_risk = pred_data.loc[hi_risk,:][["t","e"]]
+    # lo_risk = pred_data.loc[lo_risk,:][["t","e"]]
+    results=logrank_test(pred_data[hi_risk].t,pred_data[lo_risk].t,event_observed_A= pred_data[hi_risk].e, event_observed_B=pred_data[lo_risk].e)
+    
     model_type = HyperParams["modeltype"]
     cohort = HyperParams["cohort"]
     model_id = HyperParams["model_id"]
@@ -54,7 +59,7 @@ def plot_c_surv(cox_output, surv_curves_outdir, group_weights = [0.5, 0.5] ):
     plt.title(f"Survival curves - model_type: {model_type}")
     ax.set_xlabel(f'''timeline 
     dataset: {cohort}, Input type: {input_type}
-    input_dim: {input_size} c_index: {np.round(c_ind,3)}''')
+    input_dim: {input_size} c_index: {np.round(c_ind,3)}, pvalue: {np.round(results._p_value[0], 5)}''')
     ax.grid(visible = True, alpha = 0.5, linestyle = "--")
     plt.tight_layout()
     plt.savefig(f"{surv_outpath}.svg")
